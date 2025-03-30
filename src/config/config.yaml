@@ -1,0 +1,28 @@
+logging:
+  version: 1
+  disable_existing_loggers: False
+  formatters:
+    simple:
+      format: '%(levelname)s: %(message)s'
+    verbose:
+      format: '%(asctime)s %(module)-s|%(lineno)-3d %(levelname)-8s %(message)s'
+      datefmt: '%Y-%m-%dT%H:%M:%S%z'
+  handlers:
+    stderr:
+      class: logging.StreamHandler
+      formatter: simple
+      level: DEBUG
+      stream: ext://sys.stderr
+    file:
+      class: logging.handlers.RotatingFileHandler
+      level: INFO
+      formatter: verbose
+      filename: logs/app.log
+      maxBytes: 50000
+      backupCount: 2
+  loggers:
+    root:
+      level: INFO
+      handlers:
+      - stderr
+      - file
