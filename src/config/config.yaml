@@ -41,3 +41,8 @@ logging:
     #   - file
     #   - debug
     #   incremental: true
+database:
+  host: localhost
+  port: 5432
+  database: postgres
+  

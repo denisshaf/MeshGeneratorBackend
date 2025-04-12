@@ -10,14 +10,15 @@ from .config.logging_config import setup_logging
 
 from .llama import LlamaMock as Llama
 from .chat_model import ChatAssistant
-from .controllers import user_controller
+from .routers import chat, user
 
 setup_logging()
 logger = logging.getLogger('app')
 debug_logger = logging.getLogger('debug')
 
 app = FastAPI()
-app.include_router(user_controller.router)
+app.include_router(user.router)
+app.include_router(chat.router)
 app.add_middleware(
     CORSMiddleware,
     allow_origin_regex=r"http://localhost:\d+",
@@ -41,7 +42,7 @@ llm = Llama(
 )
 chat_assistant = ChatAssistant(llm=llm)
 
-@app.post('/api/chats/{chat_id}/message')
+@app.post('/')
 def get_assistant_response(chat_id: int, message: dict = Body(...)):
     user_message = message['content']
     chat_assistant.add_user_message(user_message)
@@ -70,8 +71,3 @@ def get_assistant_response(chat_id: int, message: dict = Body(...)):
     logger.info('request sent')
 
     return {"text": answer}
-
-@app.post('/api/users/{user_id}/chats')
-def create_chat(user_id: int, chat: dict = Body(...)):
-    chat_assistant.add_user_message(chat['content'])
-    return {"status": "Chat created", "user_id": user_id, "chat": chat}
