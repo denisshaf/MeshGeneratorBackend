@@ -1,5 +1,5 @@
 fastapi[standard]==0.115.12
 llama-cpp-python==0.3.8
-pyjwt[crypto]
 SQLAlchemy==2.0.40
 asyncpg==0.30.0
+python-jose==3.4.0

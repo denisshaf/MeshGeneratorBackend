@@ -1,24 +1,30 @@
-from pathlib import Path
 import logging
-import sys
 
-from fastapi import FastAPI, Body
+from fastapi import APIRouter, Body, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+from src.config.logging_config import setup_logging
+from src.routers import chat, message, user
+
 # from llama_cpp import Llama
 
-from .config.logging_config import setup_logging
 
-from .llama import LlamaMock as Llama
-from .chat_model import ChatAssistant
-from .routers import chat, user
+
 
 setup_logging()
-logger = logging.getLogger('app')
-debug_logger = logging.getLogger('debug')
+logger = logging.getLogger("app")
+debug_logger = logging.getLogger("debug")
+
 
 app = FastAPI()
-app.include_router(user.router)
-app.include_router(chat.router)
+api_router = APIRouter(prefix="/api")
+
+api_router.include_router(user.router)
+api_router.include_router(chat.router)
+api_router.include_router(message.router)
+
+app.include_router(api_router)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origin_regex=r"http://localhost:\d+",
@@ -35,39 +41,36 @@ app.add_middleware(
 #     allow_headers=["*"],
 # )
 
-llm = Llama(
-      model_path=Path("~/LLaMA-Mesh/LLaMA-Mesh.gguf").expanduser(),
-      n_ctx=4096,
-      n_threads=12
-)
-chat_assistant = ChatAssistant(llm=llm)
+# from typing import Annotated, Generator
+# from fastapi import Depends
 
-@app.post('/')
-def get_assistant_response(chat_id: int, message: dict = Body(...)):
-    user_message = message['content']
-    chat_assistant.add_user_message(user_message)
 
-    logger.info('request came')
+# def get_db_session() -> Generator[str, None, None]:
+#     try:
+#         debug_logger.debug('yield db_session')
+#         yield 'db_session'
+#     finally:
+#         debug_logger.debug('Clean up code')
 
-    response = chat_assistant.get_response(stream=True)
+# class Repository:
+#     def __init__(self, db_session: Annotated[str, Depends(get_db_session)]):
+#         debug_logger.debug('init repository')
+#         self.db_session = db_session
 
-    answer = []
-    for chunk in response:
-        delta = chunk['choices'][0]['delta']
-        
-        if 'role' in delta:
-            answer.append(delta['role'] + ': ')
-        elif 'content' in delta:
-            answer.append(delta['content'])
+#     def foo(self):
+#         debug_logger.debug(f'do smth with {self.db_session!r}')
 
-        if 'role' in delta:
-            debug_logger.debug(delta['role'])
-        elif 'content' in delta:
-            debug_logger.debug(delta['content'])
+# class Service:
+#     def __init__(self, repository: Annotated[Repository, Depends()]):
+#         debug_logger.debug('init service')
+#         self.repository = repository
 
-    answer = ''.join(answer)
-    chat_assistant.add_assistant_message(answer)
+#     def foo(self):
+#         debug_logger.debug(f'do smth with {self.repository!r}')
+#         self.repository.foo()
 
-    logger.info('request sent')
-
-    return {"text": answer}
+# @app.get('/')
+# def test(service: Annotated[Service, Depends()]):
+#     debug_logger.debug('Hello from router')
+#     service.foo()
+#     return {'answer': 'all good'}

@@ -1,22 +1,22 @@
-from dotenv import dotenv_values
-import httpx
 import logging
+from typing import Annotated, TypeAlias
 
+import httpx
+from dotenv import dotenv_values
 from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import jwt
 from jose.exceptions import JWTError
 
 from ..config.logging_config import setup_logging
 
-
 setup_logging()
-debug_logger = logging.getLogger('debug')
+debug_logger = logging.getLogger("debug")
 
 env = dotenv_values()
 
-AUTH0_DOMAIN = env['AUTH0_DOMAIN']
-AUTH0_AUDIENCE = env['AUTH0_AUDIENCE']
+AUTH0_DOMAIN = env["AUTH0_DOMAIN"]
+AUTH0_AUDIENCE = env["AUTH0_AUDIENCE"]
 ALGORITHMS = ["RS256"]
 
 token_auth_scheme = HTTPBearer()
@@ -27,15 +27,20 @@ async def get_auth0_public_key():
     async with httpx.AsyncClient() as client:
         response = await client.get(url)
         return response.json()
-    
 
-async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(token_auth_scheme)):
+
+CredentialsDep: TypeAlias = Annotated[
+    HTTPAuthorizationCredentials, Depends(token_auth_scheme)
+]
+
+
+async def get_current_user(credentials: CredentialsDep) -> dict[str, str]:
     try:
         token = credentials.credentials
         jwks = await get_auth0_public_key()
-        
+
         header = jwt.get_unverified_header(token)
-        
+
         rsa_key = {}
         for key in jwks["keys"]:
             if key["kid"] == header["kid"]:
@@ -44,30 +49,33 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(t
                     "kid": key["kid"],
                     "use": key["use"],
                     "n": key["n"],
-                    "e": key["e"]
+                    "e": key["e"],
                 }
                 break
-        
+
         if not rsa_key:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid authentication credentials",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-        
+
         payload = jwt.decode(
             token,
             rsa_key,
             algorithms=ALGORITHMS,
             audience=AUTH0_AUDIENCE,
-            issuer=f"https://{AUTH0_DOMAIN}/"
+            issuer=f"https://{AUTH0_DOMAIN}/",
         )
-        
+
         return payload
-    
+
     except JWTError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    except Exception as e:
+        debug_logger.error(f"Unexpected error: {e}")
+        raise e

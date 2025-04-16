@@ -1,0 +1,6 @@
+[tool.isort]
+multi_line_output = 5
+
+[tool.autoflake]
+imports = ['sqlalchemy, fastapi']
+check = true
