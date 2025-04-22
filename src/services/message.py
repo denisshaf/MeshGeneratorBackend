@@ -77,10 +77,10 @@ class MessageService:
 
         for i in range(10):
             response_chunk = ResponseChunkDTO(role="assistant", content=str(i))
-            await asyncio.sleep(1)
+            await asyncio.sleep(0.1)
             yield response_chunk
 
-    async def create_stream(self, stream_id: uuid.UUID) -> AsyncGenerator[str]:
+    async def create_stream(self, chat_id: int, stream_id: uuid.UUID) -> AsyncGenerator[str]:
         if stream_id not in self._stream_pool:
             raise ValueError("Stream not found")
 
@@ -89,15 +89,22 @@ class MessageService:
 
         # TODO: need to abstract the SSE message format from the MessageService
         try:
+            content_list = []
+            chunk: ResponseChunkDTO
             async for chunk in stream:
                 sse_chunk = f'data: {json.dumps(chunk)}\n\n'
+                content_list.append(chunk['content'])
+
                 debug_logger.debug(repr(sse_chunk))
-                val = yield sse_chunk
-                if val:
-                    debug_logger.debug(val)
+
+                _ = yield sse_chunk
         finally:
             debug_logger.debug('send final message')
             yield 'event: done\ndata:{}\n\n'
+
+            content = ''.join(content_list)
+            assistant_message = MessageDTO(content=content, role='assistant')
+            await self._message_repository.create(chat_id, assistant_message)
 
     async def stop_generation(self, stream_id: uuid.UUID) -> None:
         if stream_id not in self._stream_pool:

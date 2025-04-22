@@ -65,12 +65,11 @@ async def create_message(
 
 @router.get("/{message_id}/streams/{stream_id}")
 async def generate_answer(
+    chat_id: int,
     stream_id: uuid.UUID,
     message_service: Annotated[MessageService, Depends()],
 ) -> StreamingResponse:
-    stream: AsyncIterable[str] = message_service.create_stream(
-        stream_id
-    )
+    stream: AsyncIterable[str] = message_service.create_stream(chat_id, stream_id)
     return StreamingResponse(stream, media_type="text/event-stream")
 
 

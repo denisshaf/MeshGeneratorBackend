@@ -3,7 +3,7 @@ logging:
   disable_existing_loggers: False
   formatters:
     simple:
-      format: '%(levelname)s: %(message)s'
+      format: '%(module) | %(levelname)s: %(message)s'
     verbose:
       format: '%(asctime)s %(module)-10s|%(lineno)-3d %(levelname)-8s %(message)s'
       datefmt: '%Y-%m-%dT%H:%M:%S%z'

@@ -25,12 +25,12 @@ class Stream:
     message_id: int
     generator: AsyncResponseGenerator | None = None
 
-    async def close(self) -> None:
+    async def aclose(self) -> None:
         if not self.generator:
             raise ValueError("Generator is not provided")
         await self.generator.aclose()
 
-    def __iter__(self) -> AsyncIterator[ResponseChunkDTO]:
+    def __aiter__(self) -> AsyncIterator[ResponseChunkDTO]:
         if not self.generator:
             raise ValueError("Generator is not provided")
         
