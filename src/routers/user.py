@@ -4,11 +4,9 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from ..logging.logging_config import setup_logging
-from ..utils.authentication import CurrentUserDep
 from ..models.user import UserDTO
 from ..services import user
-from ..utils.authentication import get_current_user
-
+from ..utils.authentication import CurrentUserDep, get_current_user
 
 setup_logging()
 debug_logger = logging.getLogger("debug")
@@ -30,6 +28,8 @@ async def get_user(
 
 
 @router.post("/", dependencies=[Depends(get_current_user)])
-async def create_user(user_data: UserDTO, service: Annotated[user.UserService, Depends()]) -> UserDTO:
+async def create_user(
+    user_data: UserDTO, service: Annotated[user.UserService, Depends()]
+) -> UserDTO:
     new_user = await service.create_user(user_data)
     return new_user

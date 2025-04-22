@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from datetime import datetime
 import typing
+from datetime import datetime
 from typing import Optional
 
 from pydantic import BaseModel, ConfigDict
@@ -9,6 +9,7 @@ from sqlalchemy import ForeignKey, Index, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from . import Base
+
 if typing.TYPE_CHECKING:
     from .message import MessageDAO
     from .user import UserDAO
@@ -30,8 +31,8 @@ class ModelDAO(Base):
         ForeignKey("users.id", ondelete="CASCADE", onupdate="CASCADE")
     )
 
-    message: Mapped[Optional['MessageDAO']] = relationship(back_populates="models")
-    user: Mapped[Optional['UserDAO']] = relationship(back_populates="models")
+    message: Mapped[Optional["MessageDAO"]] = relationship(back_populates="models")
+    user: Mapped[Optional["UserDAO"]] = relationship(back_populates="models")
 
     __table_args__ = (Index("models_user_id_idx", "user_id"),)
 

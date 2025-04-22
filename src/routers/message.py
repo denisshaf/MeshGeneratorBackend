@@ -1,34 +1,19 @@
-from typing import Annotated, AsyncIterable
-import uuid
 import logging
+import uuid
+from typing import Annotated, AsyncIterable
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 
-from ..utils.authentication import CurrentUserDep
+from ..dependencies import validate_chat_id
+from ..logging.logging_config import setup_logging
+from ..models.message import MessageDTO, ResponseChunkDTO
 from ..services.message import MessageService
 from ..services.user import UserService
-from ..models.message import MessageDTO, ResponseChunkDTO
-from ..utils.authentication import get_current_user
-from ..logging.logging_config import setup_logging
-
+from ..utils.authentication import CurrentUserDep
 
 setup_logging()
-debug_logger = logging.getLogger('debug')
-
-
-async def validate_chat_id(
-    chat_id: int,
-    user: CurrentUserDep,
-    user_service: Annotated[UserService, Depends()],
-) -> None:
-    user_auth_id = user["sub"]
-    is_chat_owner = await user_service.is_chat_owner(user_auth_id, chat_id)
-
-    if not is_chat_owner:
-        raise HTTPException(
-            status_code=403, detail="You are not the owner of this chat"
-        )
+debug_logger = logging.getLogger("debug")
 
 
 router = APIRouter(
@@ -41,7 +26,7 @@ router = APIRouter(
 )
 
 
-@router.get("/", dependencies=[Depends(validate_chat_id), Depends(get_current_user)])
+@router.get("/", dependencies=[Depends(validate_chat_id)])
 async def get_messages(
     chat_id: int,
     message_service: Annotated[MessageService, Depends()],
@@ -52,7 +37,7 @@ async def get_messages(
     return messages
 
 
-@router.post("/", dependencies=[Depends(validate_chat_id), Depends(get_current_user)])
+@router.post("/", dependencies=[Depends(validate_chat_id)])
 async def create_message(
     chat_id: int,
     message: MessageDTO,

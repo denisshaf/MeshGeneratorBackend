@@ -2,9 +2,9 @@ from typing import Annotated
 
 from fastapi import Depends
 
+from ..models.chat import ChatDTO
 from ..repository.chat import AsyncChatRepository
 from ..repository.user import AsyncUserRepository
-from ..models.chat import ChatDTO
 
 
 class ChatService:
@@ -21,7 +21,7 @@ class ChatService:
 
         if not user:
             raise ValueError("User not found")
-        
+
         assert user.id
 
         chats = await self._chat_repository.get_by_user_id(user.id)
@@ -34,6 +34,14 @@ class ChatService:
             raise ValueError("User not found")
 
         assert user.id
-        
+
         created_chat = await self._chat_repository.create_by_user_id(user.id)
+
         return created_chat
+
+    async def update_chat_name(self, chat_id: int, name: str) -> ChatDTO:
+        updated_chat = await self._chat_repository.update_name(chat_id, name)
+        return updated_chat
+
+    async def delete_chat(self, chat_id: int) -> None:
+        await self._chat_repository.delete_chat(chat_id)

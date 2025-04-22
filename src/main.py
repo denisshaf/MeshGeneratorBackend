@@ -4,8 +4,8 @@ from fastapi import APIRouter, Body, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.logging.logging_config import setup_logging
-from src.routers import chat, message, user
 from src.logging.logging_middleware import LoggingMiddleware
+from src.routers import chat, message, user
 
 # from llama_cpp import Llama
 
@@ -31,10 +31,7 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["Content-Type", "Authorization"],
 )
-app.add_middleware(
-    LoggingMiddleware,
-    excluded_paths=['/streams']
-)
+app.add_middleware(LoggingMiddleware, excluded_paths=["/streams"])
 
 # app.add_middleware(
 #     CORSMiddleware,

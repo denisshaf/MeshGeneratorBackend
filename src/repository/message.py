@@ -1,19 +1,18 @@
-from typing import Annotated
 import logging
+from typing import Annotated
 
+from fastapi import Depends
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
-from fastapi import Depends
 
-from ..models.message import MessageDTO, MessageDAO
-from ..models.chat_role import ChatRoleDAO
 from ..db import get_db_session
 from ..logging.logging_config import setup_logging
-
+from ..models.chat_role import ChatRoleDAO
+from ..models.message import MessageDAO, MessageDTO
 
 setup_logging()
-debug_logger = logging.getLogger('debug')
+debug_logger = logging.getLogger("debug")
 
 
 class AsyncMessageRepository:
@@ -43,15 +42,17 @@ class AsyncMessageRepository:
             content=new_message.content,
             chat_id=new_message.chat_id,
             created_at=new_message.created_at,
-            role=role.name
+            role=role.name,
         )
 
         return message_dto
 
     async def get_by_chat_id(self, chat_id: int) -> list[MessageDTO]:
-        query = query = select(MessageDAO).options(
-            joinedload(MessageDAO.role)
-        ).where(MessageDAO.chat_id == chat_id)
+        query = query = (
+            select(MessageDAO)
+            .options(joinedload(MessageDAO.role))
+            .where(MessageDAO.chat_id == chat_id)
+        )
 
         result = await self._db_session.execute(query)
         messages = result.scalars().all()
@@ -62,12 +63,13 @@ class AsyncMessageRepository:
                 content=message.content,
                 role=message.role.name,
                 created_at=message.created_at,
-                chat_id=message.chat_id
-            ) for message in messages
+                chat_id=message.chat_id,
+            )
+            for message in messages
         ]
 
         return messages_dto
-    
+
     async def update(self, message: MessageDTO) -> MessageDTO: ...
 
     async def delete(self, user_id: str) -> bool: ...

@@ -1,10 +1,12 @@
-from typing import AsyncGenerator, TypeAlias, Annotated
 from pathlib import Path
+from typing import Annotated, AsyncGenerator, TypeAlias
 
 import yaml
 from dotenv import dotenv_values
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine, AsyncSession
 from fastapi import Depends
+from sqlalchemy.ext.asyncio import (
+    AsyncSession, async_sessionmaker, create_async_engine
+)
 
 env = dotenv_values()
 

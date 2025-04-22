@@ -1,15 +1,14 @@
-from dataclasses import dataclass
-from typing import AsyncGenerator, AsyncIterator, TypeAlias
 import json
 import logging
+from dataclasses import dataclass
 from enum import EnumType
+from typing import AsyncGenerator, AsyncIterator, TypeAlias
 
-from .models.message import ResponseChunkDTO
 from .logging.logging_config import setup_logging
-
+from .models.message import ResponseChunkDTO
 
 setup_logging()
-debug_logger = logging.getLogger('debug')
+debug_logger = logging.getLogger("debug")
 
 
 AsyncResponseGenerator: TypeAlias = AsyncGenerator[ResponseChunkDTO, None]
@@ -33,5 +32,5 @@ class Stream:
     def __aiter__(self) -> AsyncIterator[ResponseChunkDTO]:
         if not self.generator:
             raise ValueError("Generator is not provided")
-        
+
         return aiter(self.generator)

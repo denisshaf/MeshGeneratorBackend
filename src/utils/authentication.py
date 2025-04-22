@@ -1,6 +1,6 @@
 import logging
-from typing import Annotated, TypeAlias, Any
 import typing
+from typing import Annotated, Any, TypeAlias
 
 import httpx
 from dotenv import dotenv_values
