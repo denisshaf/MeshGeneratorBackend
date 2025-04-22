@@ -3,12 +3,11 @@ import logging
 from fastapi import APIRouter, Body, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from src.config.logging_config import setup_logging
+from src.logging.logging_config import setup_logging
 from src.routers import chat, message, user
+from src.logging.logging_middleware import LoggingMiddleware
 
 # from llama_cpp import Llama
-
-
 
 
 setup_logging()
@@ -32,6 +31,10 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["Content-Type", "Authorization"],
 )
+app.add_middleware(
+    LoggingMiddleware,
+    excluded_paths=['/streams']
+)
 
 # app.add_middleware(
 #     CORSMiddleware,
@@ -40,37 +43,3 @@ app.add_middleware(
 #     allow_methods=["*"],
 #     allow_headers=["*"],
 # )
-
-# from typing import Annotated, Generator
-# from fastapi import Depends
-
-
-# def get_db_session() -> Generator[str, None, None]:
-#     try:
-#         debug_logger.debug('yield db_session')
-#         yield 'db_session'
-#     finally:
-#         debug_logger.debug('Clean up code')
-
-# class Repository:
-#     def __init__(self, db_session: Annotated[str, Depends(get_db_session)]):
-#         debug_logger.debug('init repository')
-#         self.db_session = db_session
-
-#     def foo(self):
-#         debug_logger.debug(f'do smth with {self.db_session!r}')
-
-# class Service:
-#     def __init__(self, repository: Annotated[Repository, Depends()]):
-#         debug_logger.debug('init service')
-#         self.repository = repository
-
-#     def foo(self):
-#         debug_logger.debug(f'do smth with {self.repository!r}')
-#         self.repository.foo()
-
-# @app.get('/')
-# def test(service: Annotated[Service, Depends()]):
-#     debug_logger.debug('Hello from router')
-#     service.foo()
-#     return {'answer': 'all good'}

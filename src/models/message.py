@@ -1,15 +1,18 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional
+from typing import TypedDict, Optional
+import typing
 
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import ForeignKey, Index, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from . import Base
-from .chat_role import ChatRoleDAO
+if typing.TYPE_CHECKING:
+    from .chat_role import ChatRoleDAO
+    from .chat import ChatDAO
+    from .model import ModelDAO
 
 
 class MessageDAO(Base):
@@ -24,9 +27,9 @@ class MessageDAO(Base):
     )
     role_id: Mapped[int] = mapped_column(ForeignKey("chat_roles.id"))
 
-    chat: Mapped[Optional["ChatDAO"]] = relationship(back_populates="messages")
-    role: Mapped["ChatRoleDAO"] = relationship(back_populates="messages")
-    models: Mapped[list["ModelDAO"]] = relationship(
+    chat: Mapped[Optional['ChatDAO']] = relationship(back_populates="messages")
+    role: Mapped['ChatRoleDAO'] = relationship(back_populates="messages")
+    models: Mapped[list['ModelDAO']] = relationship(
         back_populates="message", cascade="all, delete-orphan"
     )
 
@@ -41,15 +44,13 @@ class MessageDAO(Base):
 class MessageDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
+    id: int | None = None
     content: str
+    role: str | None = None
     created_at: datetime | None = None
     chat_id: int | None = None
-    role_id: int
 
 
-class ResponseChunkDTO(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
+class ResponseChunkDTO(TypedDict):
     role: str
     content: str

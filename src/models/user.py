@@ -35,6 +35,7 @@ class UserDAO(Base):
 class UserDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
+    id: int | None = None
     name: str
     auth_id: str = Field(serialization_alias="sub")
     email: str

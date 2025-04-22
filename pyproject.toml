@@ -4,3 +4,12 @@ multi_line_output = 5
 [tool.autoflake]
 imports = ['sqlalchemy, fastapi']
 check = true
+
+[tool.mypy]
+disallow_untyped_defs = true
+disallow_any_unimported = true
+no_implicit_optional = true
+check_untyped_defs = true
+warn_return_any = true
+warn_unused_ignores = true
+modules = ['src']

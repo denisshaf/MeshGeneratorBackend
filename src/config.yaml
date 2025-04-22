@@ -7,6 +7,8 @@ logging:
     verbose:
       format: '%(asctime)s %(module)-10s|%(lineno)-3d %(levelname)-8s %(message)s'
       datefmt: '%Y-%m-%dT%H:%M:%S%z'
+    http:
+      format: '%(message)s'
   handlers:
     stderr:
       class: logging.StreamHandler
@@ -25,6 +27,13 @@ logging:
       formatter: simple
       level: DEBUG
       stream: ext://sys.stdout
+    http_file:
+      class: logging.handlers.RotatingFileHandler
+      level: DEBUG
+      formatter: http
+      filename: src/logs/requests.log
+      maxBytes: 10000
+      backupCount: 1
   loggers:
     root:
       level: INFO
@@ -35,6 +44,11 @@ logging:
       level: DEBUG
       handlers:
       - debug
+      propagate: false
+    http:
+      level: DEBUG
+      handlers:
+      - http_file
       propagate: false
     # uvicorn:
     #   handlers:

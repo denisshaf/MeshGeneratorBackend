@@ -1,15 +1,16 @@
 from __future__ import annotations
 
 from datetime import datetime
+import typing
 
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import ForeignKey, Index, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from . import Base
-
-# from ..models.user import UserDAO
-# from ..models.message import MessageDAO
+if typing.TYPE_CHECKING:
+    from .user import UserDAO
+    from .message import MessageDAO
 
 
 class ChatDAO(Base):
@@ -23,8 +24,8 @@ class ChatDAO(Base):
         ForeignKey("users.id", ondelete="CASCADE", onupdate="CASCADE")
     )
 
-    user: Mapped["UserDAO"] = relationship(back_populates="chats")
-    messages: Mapped[list["MessageDAO"]] = relationship(
+    user: Mapped['UserDAO'] = relationship(back_populates="chats")
+    messages: Mapped[list['MessageDAO']] = relationship(
         back_populates="chat", cascade="all, delete-orphan"
     )
 
@@ -37,7 +38,7 @@ class ChatDAO(Base):
 class ChatDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
+    id: int | None = None
     title: str
+    user_id: int | None = None
     created_at: datetime
-    user_id: int
