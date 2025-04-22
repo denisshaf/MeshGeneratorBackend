@@ -28,10 +28,10 @@ class Stream:
     async def close(self) -> None:
         if not self.generator:
             raise ValueError("Generator is not provided")
-        await self.generator.close()
+        await self.generator.aclose()
 
     def __iter__(self) -> AsyncIterator[ResponseChunkDTO]:
         if not self.generator:
             raise ValueError("Generator is not provided")
         
-        return iter(self.generator)
+        return aiter(self.generator)
