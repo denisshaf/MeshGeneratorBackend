@@ -21,6 +21,7 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         self.excluded_paths = excluded_paths or []
 
     async def _log_request(self, request: Request, request_body: bytes) -> None:
+        formatted_body: str
         try:
             body_json = json.loads(request_body)
             formatted_body = json.dumps(body_json, indent=2)
@@ -40,6 +41,7 @@ class LoggingMiddleware(BaseHTTPMiddleware):
     def _log_response(
         self, response: StreamingResponse, response_body: bytes | None = None
     ) -> None:
+        formatted_body: str
         if response_body:
             try:
                 body_json = json.loads(response_body)

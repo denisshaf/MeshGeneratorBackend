@@ -6,12 +6,11 @@ from .llama import LlamaMock as Llama
 from .object_pool import AbstractPool
 
 
-class AssistantPool(AbstractPool):
-
+class AssistantPool(AbstractPool[ChatAssistant]):
     def __init__(self, max_count: int = 1):
         super().__init__(max_count)
 
-    def _add_assistant(self):
+    def _add_assistant(self) -> None:
         llm = Llama(
             model_path=Path("~/LLaMA-Mesh/LLaMA-Mesh.gguf").expanduser(),
             n_ctx=4096,
@@ -27,4 +26,4 @@ class AssistantPool(AbstractPool):
             self._add_assistant()
 
     @override
-    def release(instance: ChatAssistant): ...
+    def release(self, instance: ChatAssistant) -> None: ...
