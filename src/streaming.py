@@ -22,6 +22,7 @@ class CancellGeneratorEnum(EnumType):
 class Stream:
     chat_id: int
     message_id: int
+    is_running: bool = False
     generator: AsyncResponseGenerator | None = None
 
     async def aclose(self) -> None:

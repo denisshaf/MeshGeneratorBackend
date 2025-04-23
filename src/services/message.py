@@ -15,6 +15,7 @@ from ..streaming import AsyncResponseGenerator, Stream
 
 setup_logging()
 debug_logger = logging.getLogger("debug")
+logger = logging.getLogger('app')
 
 
 class MessageService:
@@ -75,7 +76,7 @@ class MessageService:
 
         for i in range(10):
             response_chunk = ResponseChunkDTO(role="assistant", content=str(i))
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(1)
             yield response_chunk
 
     async def create_stream(
@@ -86,6 +87,7 @@ class MessageService:
 
         stream = self._stream_pool[stream_id]
         stream.generator = self._stream_message_mock()
+        stream.is_running = True
 
         # TODO: need to abstract the SSE message format from the MessageService
         try:
@@ -98,8 +100,13 @@ class MessageService:
                 debug_logger.debug(repr(sse_chunk))
 
                 _ = yield sse_chunk
+                
+                if not stream.is_running:
+                    break
+                
+            yield "event: done\ndata:{}\n\n"
         finally:
-            debug_logger.debug("send final message")
+            logger.info("send final message")
             yield "event: done\ndata:{}\n\n"
 
             content = "".join(content_list)
@@ -114,14 +121,16 @@ class MessageService:
         stream = self._stream_pool[stream_id]
         assert stream.generator
 
-        import asyncio
-        from contextlib import suppress
+        stream.is_running = False
 
-        task = asyncio.create_task(stream.generator.__anext__())
-        task.cancel()
-        with suppress(asyncio.CancelledError):
-            await task
-        await stream.generator.aclose()
+        # import asyncio
+        # from contextlib import suppress
+
+        # task = asyncio.create_task(stream.generator.__anext__())
+        # task.cancel()
+        # with suppress(asyncio.CancelledError):
+        #     await task
+        # await stream.generator.aclose()
 
         # await stream.generator.asend(StopAsyncIteration)
         del self._stream_pool[stream_id]

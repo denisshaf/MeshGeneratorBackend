@@ -41,7 +41,7 @@ logging:
       - stderr
       - file
     debug:
-      level: DEBUG
+      level: INFO
       handlers:
       - debug
       propagate: false

@@ -31,7 +31,7 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["Content-Type", "Authorization"],
 )
-app.add_middleware(LoggingMiddleware, excluded_paths=["/streams"])
+# app.add_middleware(LoggingMiddleware, excluded_paths=["/streams"])
 
 # app.add_middleware(
 #     CORSMiddleware,
