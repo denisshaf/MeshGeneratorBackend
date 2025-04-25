@@ -65,9 +65,6 @@ class AsyncChatRepository:
         # TODO: Why doesn't db update without commit?
         await self._db_session.commit()
 
-        # FIXME: debug causes an error here.
-        debug_logger.debug(f"Updated chat: {updated_chat}")
-
         return ChatDTO.model_validate(updated_chat)
 
     async def delete_chat(self, chat_id: int) -> None:

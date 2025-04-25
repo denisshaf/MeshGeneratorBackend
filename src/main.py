@@ -1,21 +1,28 @@
 import logging
+from contextlib import asynccontextmanager
+from typing import AsyncGenerator
 
 from fastapi import APIRouter, Body, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from src.assistant.assistant_runner import AsyncProcessAssistantRunner
 from src.logging.logging_config import setup_logging
 from src.logging.logging_middleware import LoggingMiddleware
 from src.routers import chat, message, user
-
-# from llama_cpp import Llama
-
 
 setup_logging()
 logger = logging.getLogger("app")
 debug_logger = logging.getLogger("debug")
 
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
+    process_runner = AsyncProcessAssistantRunner()
+    yield
+    process_runner.shutdown()
+
+
+app = FastAPI(lifespan=lifespan)
 api_router = APIRouter(prefix="/api")
 
 api_router.include_router(user.router)
@@ -32,7 +39,7 @@ app.add_middleware(
     allow_headers=["Content-Type", "Authorization"],
 )
 
-# app.add_middleware(LoggingMiddleware, excluded_paths=["/streams"])
+app.add_middleware(LoggingMiddleware, excluded_paths=["/streams"])
 
 # app.add_middleware(
 #     CORSMiddleware,

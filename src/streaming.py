@@ -1,7 +1,5 @@
-import json
 import logging
 from dataclasses import dataclass
-from enum import EnumType
 from typing import AsyncGenerator, AsyncIterator, TypeAlias
 
 from .logging.logging_config import setup_logging
@@ -12,10 +10,6 @@ debug_logger = logging.getLogger("debug")
 
 
 AsyncResponseGenerator: TypeAlias = AsyncGenerator[ResponseChunkDTO, None]
-
-
-class CancellGeneratorEnum(EnumType):
-    CANCELLATION_TOKEN = 1
 
 
 @dataclass

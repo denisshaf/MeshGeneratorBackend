@@ -47,7 +47,7 @@ class MessageDTO(BaseModel):
 
     id: int | None = None
     content: str
-    role: str | None = None
+    role: str
     created_at: datetime | None = None
     chat_id: int | None = None
 
