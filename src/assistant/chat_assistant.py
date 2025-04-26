@@ -43,3 +43,37 @@ class MockChatAssistant(ChatAssistant):
             response_chunk = ResponseChunkDTO(role="assistant", content=str(i) + " ")
             time.sleep(1)
             yield response_chunk
+
+class ObjChatAssistant(ChatAssistant):
+    def generate_response(
+        self, chat_history: list[ResponseChunkDTO] 
+    ) -> Generator[ResponseChunkDTO]:
+        import time
+
+        tokens = [
+            '```', 'obj', '\n',
+            '#', ' ', 'Simple', ' ', 'OBJ', ' ', 'file', '\n', 
+            '#', ' ', 'Vertices', '\n', 
+            'v', ' ', '-', '1.0', ' ', '-', '1.0', ' ', '-', '1.0', '\n', 
+            'v', ' ', '1.0', ' ', '-', '1.0', ' ', '-', '1.0', '\n', 
+            'v', ' ', '1.0', ' ', '1.0', ' ', '-', '1.0', '\n', 
+            'v', ' ', '-', '1.0', ' ', '1.0', ' ', '-', '1.0', '\n', 
+            'v', ' ', '-', '1.0', ' ', '-', '1.0', ' ', '1.0', '\n', 
+            'v', ' ', '1.0', ' ', '-', '1.0', ' ', '1.0', '\n', 
+            'v', ' ', '1.0', ' ', '1.0', ' ', '1.0', '\n', 
+            'v', ' ', '-', '1.0', ' ', '1.0', ' ', '1.0', '\n', 
+            '\n', 
+            '#', ' ', 'Faces', '\n', 
+            'f', ' ', '1', ' ', '2', ' ', '3', ' ', '4', '\n', 
+            'f', ' ', '5', ' ', '6', ' ', '7', ' ', '8', '\n', 
+            'f', ' ', '1', ' ', '5', ' ', '8', ' ', '4', '\n', 
+            'f', ' ', '2', ' ', '6', ' ', '7', ' ', '3', '\n', 
+            'f', ' ', '1', ' ', '2', ' ', '6', ' ', '5', '\n', 
+            'f', ' ', '4', ' ', '3', ' ', '7', ' ', '8', '\n',
+            '```' '\n',
+        ]
+        
+        for token in tokens:
+            response_chunk = ResponseChunkDTO(role="assistant", content=token)
+            time.sleep(0.01)
+            yield response_chunk

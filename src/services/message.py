@@ -7,8 +7,8 @@ from typing import Annotated, AsyncGenerator, ClassVar
 from fastapi import Depends
 
 from ..assistant.assistant_runner import AsyncProcessAssistantRunner
-from ..assistant.chat_assistant import ChatAssistant, MockChatAssistant
-from ..assistant.llama import LlamaMock as Llama
+from ..assistant.chat_assistant import ChatAssistant, MockChatAssistant, ObjChatAssistant
+# from ..assistant.llama import LlamaMock as Llama
 from ..logging.logging_config import setup_logging
 from ..models.message import MessageDTO, ResponseChunkDTO
 from ..repository.message import AsyncMessageRepository
@@ -16,8 +16,9 @@ from ..streaming import AsyncResponseGenerator, Stream
 from ..utils.object_pool import (
     AsyncObjectPool, AsyncPooledObjectContextManager
 )
+from ..utils.parser import OBJParser
 
-# from llama_cpp import Llama
+from llama_cpp import Llama
 
 
 setup_logging()
@@ -33,6 +34,7 @@ class MessageService:
         self, message_repository: Annotated[AsyncMessageRepository, Depends()]
     ):
         self._message_repository = message_repository
+        self._obj_parser = OBJParser()
 
     async def get_by_chat_id(self, chat_id: int) -> list[MessageDTO]:
         messages = await self._message_repository.get_by_chat_id(chat_id)
@@ -60,9 +62,10 @@ class MessageService:
             n_threads=12,
             verbose=False,
         )
-        debug_logger.debug(f"LLM: {llm}")
 
-        chat_assistant = MockChatAssistant(llm=llm)
+        # chat_assistant = MockChatAssistant(llm=llm)
+        # chat_assistant = ChatAssistant(llm=llm)
+        chat_assistant = ObjChatAssistant(llm=llm)
         return chat_assistant
 
     async def _stream_message(
@@ -96,34 +99,44 @@ class MessageService:
         stream.is_running = True
 
         # TODO: need to abstract the SSE message format from the MessageService
-        try:
-            content_list = []
-            chunk: ResponseChunkDTO
-            async for chunk in stream:
-                if chunk["content"] == "EOS":
-                    break
+        with self._obj_parser:
+            try:
+                content_list = []
+                chunk: ResponseChunkDTO
+                async for chunk in stream:
+                    content = chunk["content"]
+                    if content == "EOS":
+                        break
 
-                sse_chunk = f"data: {json.dumps(chunk)}\n\n"
-                content_list.append(chunk["content"])
+                    sse_chunk = f"data: {json.dumps(chunk)}\n\n"
+                    content_list.append(content)
 
-                # debug_logger.debug(repr(sse_chunk))
+                    self._obj_parser.process_token(content)
 
-                yield sse_chunk
+                    # debug_logger.debug(repr(sse_chunk))
 
-                if not stream.is_running:
-                    self._runner.stop_stream(stream_id)
-                    break
+                    yield sse_chunk
 
-            yield "event: done\ndata:{}\n\n"
-        finally:
-            logger.info("send final message")
-            yield "event: done\ndata:{}\n\n"
+                    if not stream.is_running:
+                        debug_logger.debug("stream stopped")
+                        self._runner.stop_stream(stream_id)
+                        break
+            finally:
+                obj_indexes_list = self._obj_parser.get_obj_indexes()
 
-            content = "".join(content_list)
-            assistant_message = MessageDTO(content=content, role="assistant")
-            await self._message_repository.create(chat_id, assistant_message)
+                debug_logger.debug(f'OBJ indexes: {obj_indexes_list}')
+                for obj_indexes in obj_indexes_list:
+                    yield f"event: obj_content\ndata:{json.dumps(obj_indexes)}\n\n"
 
-            del self._stream_pool[stream_id]
+                debug_logger.debug('send final message')
+                logger.info("send final message")
+                yield "event: done\ndata:{}\n\n"
+
+                content = "".join(content_list)
+                assistant_message = MessageDTO(content=content, role="assistant")
+                await self._message_repository.create(chat_id, assistant_message)
+
+                del self._stream_pool[stream_id]
 
     # FIXME: stop generation doesn't work
     async def stop_generation(self, stream_id: uuid.UUID) -> None:

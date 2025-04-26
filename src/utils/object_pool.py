@@ -19,7 +19,7 @@ class AsyncObjectPool[T]:
 
     @classmethod
     def get_pool(
-        cls: type[AsyncObjectPool[T]], factory: Callable[[], T], max_count: int = 1
+        cls: type[AsyncObjectPool[T]], factory: Callable[[], T], max_count: int = 3
     ) -> AsyncObjectPool[T]:
         debug_logger.debug(f"get_pool: class = {cls}, {cls._pool=}")
         if not cls._pool:
@@ -29,7 +29,7 @@ class AsyncObjectPool[T]:
             pool = cls._pool
         return pool
 
-    def __init__(self, factory: Callable[[], T], max_count: int = 1):
+    def __init__(self, factory: Callable[[], T], max_count: int) -> None:
         self._max_count = max_count
         self._factory = factory
 
