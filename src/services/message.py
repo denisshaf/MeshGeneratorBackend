@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Annotated, AsyncGenerator, ClassVar
 
 from fastapi import Depends
+import yaml
 
 from ..assistant.assistant_runner import AsyncProcessAssistantRunner
 from ..assistant.chat_assistant import ChatAssistant, MockChatAssistant, ObjChatAssistant
@@ -13,12 +14,11 @@ from ..logging.logging_config import setup_logging
 from ..models.message import MessageDTO, ResponseChunkDTO
 from ..repository.message import AsyncMessageRepository
 from ..streaming import AsyncResponseGenerator, Stream
-from ..utils.object_pool import (
+from ..assistant.object_pool import (
     AsyncObjectPool, AsyncPooledObjectContextManager
 )
-from ..utils.parser import OBJParser
-
-from llama_cpp import Llama
+from ..assistant.parser import OBJParser
+from ..assistant.chat_assistant import LlamaChatAssistant, MockChatAssistant, LlamaMockChatAssistant, ObjChatAssistant
 
 
 setup_logging()
@@ -55,18 +55,20 @@ class MessageService:
 
     @staticmethod
     def chat_assistant_factory() -> ChatAssistant:
-        model_path = Path("~/LLaMA-Mesh/LLaMA-Mesh.gguf").expanduser()
-        llm = Llama(
-            model_path=str(model_path),
-            n_ctx=4096,
-            n_threads=12,
-            verbose=False,
-        )
+        with open("src/config.yaml") as file:
+            config = yaml.safe_load(file)
+            implementation = config['assistant']["implementation"]
 
-        # chat_assistant = MockChatAssistant(llm=llm)
-        # chat_assistant = ChatAssistant(llm=llm)
-        chat_assistant = ObjChatAssistant(llm=llm)
-        return chat_assistant
+        if implementation == "llama":
+            return LlamaChatAssistant()
+        elif implementation == "mock":
+            return MockChatAssistant()
+        elif implementation == "llama_mock":
+            return LlamaMockChatAssistant()
+        elif implementation == "obj":
+            return ObjChatAssistant()
+        else:
+            raise ValueError(f"Unknown assistant implementation: {implementation}")
 
     async def _stream_message(
         self,
@@ -74,10 +76,15 @@ class MessageService:
         stream_id: uuid.UUID,
     ) -> AsyncResponseGenerator:
         assistant_pool = AsyncObjectPool[ChatAssistant].get_pool(
-            self.chat_assistant_factory
+            MessageService.chat_assistant_factory
         )
 
+        debug_logger.debug(f'assistant_pool: {assistant_pool}')
+        
         async with AsyncPooledObjectContextManager(assistant_pool) as chat_assistant:
+
+            debug_logger.debug(f'chat_assistant: {chat_assistant}')
+            
             gen = self._runner.stream_response(
                 chat_assistant, message_history, stream_id
             )
@@ -113,7 +120,7 @@ class MessageService:
 
                     self._obj_parser.process_token(content)
 
-                    # debug_logger.debug(repr(sse_chunk))
+                    debug_logger.debug(repr(sse_chunk))
 
                     yield sse_chunk
 

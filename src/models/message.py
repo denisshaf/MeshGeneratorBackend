@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import typing
 from datetime import datetime
-from typing import Optional, TypedDict
+from typing import Optional, TypedDict, Literal
 
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import ForeignKey, Index, Text, func
@@ -52,6 +52,9 @@ class MessageDTO(BaseModel):
     chat_id: int | None = None
 
 
+type MessageRole = Literal["user", "assistant"]
+
+
 class ResponseChunkDTO(TypedDict):
-    role: str
+    role: MessageRole
     content: str
