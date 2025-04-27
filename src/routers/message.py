@@ -11,6 +11,7 @@ from ..models.message import MessageDTO, ResponseChunkDTO
 from ..services.message import MessageService
 from ..services.user import UserService
 from ..utils.authentication import CurrentUserDep
+from .sse_streamer import async_sse_stream
 
 setup_logging()
 debug_logger = logging.getLogger("debug")
@@ -54,8 +55,8 @@ async def generate_answer(
     stream_id: uuid.UUID,
     message_service: Annotated[MessageService, Depends()],
 ) -> StreamingResponse:
-    stream: AsyncIterable[str] = message_service.create_stream(chat_id, stream_id)
-    return StreamingResponse(stream, media_type="text/event-stream")
+    stream = message_service.create_stream(chat_id, stream_id)
+    return StreamingResponse(async_sse_stream(stream), media_type="text/event-stream")
 
 
 @router.delete("/{message_id}/streams/{stream_id}")

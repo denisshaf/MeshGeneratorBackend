@@ -3,6 +3,7 @@ import logging
 import uuid
 from pathlib import Path
 from typing import Annotated, AsyncGenerator, ClassVar
+from enum import StrEnum
 
 from fastapi import Depends
 import yaml
@@ -19,11 +20,18 @@ from ..assistant.object_pool import (
 )
 from ..assistant.parser import OBJParser
 from ..assistant.chat_assistant import LlamaChatAssistant, MockChatAssistant, LlamaMockChatAssistant, ObjChatAssistant
+from ..routers.sse_streamer import ServerSentEvent
 
 
 setup_logging()
 debug_logger = logging.getLogger("debug")
 logger = logging.getLogger("app")
+
+
+class Event(StrEnum):
+    OBJ_CONTENT = "obj_content"
+    DONE = "done"
+    ERROR = "error"
 
 
 class MessageService:
@@ -78,8 +86,6 @@ class MessageService:
         assistant_pool = AsyncObjectPool[ChatAssistant].get_pool(
             MessageService.chat_assistant_factory
         )
-
-        debug_logger.debug(f'assistant_pool: {assistant_pool}')
         
         async with AsyncPooledObjectContextManager(assistant_pool) as chat_assistant:
 
@@ -94,7 +100,7 @@ class MessageService:
 
     async def create_stream(
         self, chat_id: int, stream_id: uuid.UUID
-    ) -> AsyncGenerator[str]:
+    ) -> AsyncGenerator[ServerSentEvent]:
         if stream_id not in self._stream_pool:
             raise ValueError("Stream not found")
 
@@ -105,7 +111,6 @@ class MessageService:
         stream.generator = self._stream_message(message_history, stream_id)
         stream.is_running = True
 
-        # TODO: need to abstract the SSE message format from the MessageService
         with self._obj_parser:
             try:
                 content_list = []
@@ -115,14 +120,14 @@ class MessageService:
                     if content == "EOS":
                         break
 
-                    sse_chunk = f"data: {json.dumps(chunk)}\n\n"
+                    sse_chunk = ServerSentEvent(data=chunk)
                     content_list.append(content)
 
                     self._obj_parser.process_token(content)
 
                     debug_logger.debug(repr(sse_chunk))
 
-                    yield sse_chunk
+                    yield ServerSentEvent(data=chunk)
 
                     if not stream.is_running:
                         debug_logger.debug("stream stopped")
@@ -130,14 +135,12 @@ class MessageService:
                         break
             finally:
                 obj_indexes_list = self._obj_parser.get_obj_indexes()
-
                 debug_logger.debug(f'OBJ indexes: {obj_indexes_list}')
-                for obj_indexes in obj_indexes_list:
-                    yield f"event: obj_content\ndata:{json.dumps(obj_indexes)}\n\n"
+                yield ServerSentEvent(event=Event.OBJ_CONTENT, data=obj_indexes_list)
 
                 debug_logger.debug('send final message')
                 logger.info("send final message")
-                yield "event: done\ndata:{}\n\n"
+                yield ServerSentEvent(event=Event.DONE)
 
                 content = "".join(content_list)
                 assistant_message = MessageDTO(content=content, role="assistant")
