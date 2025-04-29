@@ -110,6 +110,23 @@ class ObjChatAssistant(ChatAssistant):
             'are ', 'you ', 'satisfied', '?'
         ]
 
+        tokens = [
+            'here ', 'is', ' ', 'your ', 'obj', ' ', 'model:', '\n',
+            'v', ' ', '0', ' ', '0', ' ', '0', '\n',
+            'v', ' ', '2', ' ', '0', ' ', '0', '\n',
+            'v', ' ', '2', ' ', '2', ' ', '0', '\n',
+            'v', ' ', '0', ' ', '2', ' ', '0', '\n',
+            'v', ' ', '1', ' ', '1', ' ', '3', '\n',
+            '\n',
+            'f', ' ', '4', ' ', '1', ' ', '2', '\n',
+            'f', ' ', '3', ' ', '4', ' ', '2', '\n',
+            'f', ' ', '5', ' ', '2', ' ', '1', '\n',
+            'f', ' ', '4', ' ', '5', ' ', '1', '\n',
+            'f', ' ', '3', ' ', '5', ' ', '4', '\n',
+            'f', ' ', '5', ' ', '3', ' ', '2', '\n',
+            'are ', 'you ', 'satisfied', '?'
+        ]
+
         for token in tokens:
             response_chunk = ResponseChunkDTO(role="assistant", content=token)
             time.sleep(0.01)

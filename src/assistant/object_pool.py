@@ -51,6 +51,7 @@ class AsyncObjectPool[T]:
 
                     loop = asyncio.get_event_loop()
                     obj = await loop.run_in_executor(None, self._factory)
+                    debug_logger.debug(f"obj: {obj}")
                     return obj
 
         debug_logger.debug("Wait to get an object")

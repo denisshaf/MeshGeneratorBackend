@@ -9,6 +9,7 @@ from sqlalchemy import ForeignKey, Index, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from . import Base
+from .model import ModelDTO
 
 if typing.TYPE_CHECKING:
     from .chat import ChatDAO
@@ -50,6 +51,7 @@ class MessageDTO(BaseModel):
     role: str
     created_at: datetime | None = None
     chat_id: int | None = None
+    models: list[ModelDTO] | None = None
 
 
 type MessageRole = Literal["user", "assistant"]

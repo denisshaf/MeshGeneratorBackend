@@ -120,12 +120,9 @@ class MessageService:
                     if content == "EOS":
                         break
 
-                    sse_chunk = ServerSentEvent(data=chunk)
                     content_list.append(content)
 
                     self._obj_parser.process_token(content)
-
-                    debug_logger.debug(repr(sse_chunk))
 
                     yield ServerSentEvent(data=chunk)
 

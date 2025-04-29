@@ -4,14 +4,15 @@ from typing import Annotated
 from fastapi import Depends
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, selectinload
 
 from ..db import get_db_session
 from ..logging.logging_config import setup_logging
 from ..models.chat_role import ChatRoleDAO
 from ..models.message import MessageDAO, MessageDTO
+from ..models.model import ModelDTO
 
-setup_logging()
+setup_logging() 
 debug_logger = logging.getLogger("debug")
 
 
@@ -42,13 +43,13 @@ class AsyncMessageRepository:
             content=new_message.content,
             chat_id=new_message.chat_id,
             created_at=new_message.created_at,
-            role=role.name,
+            role=role.name, 
         )
 
         return message_dto
 
     async def get_by_chat_id(self, chat_id: int) -> list[MessageDTO]:
-        query = query = (
+        query = (
             select(MessageDAO)
             .options(joinedload(MessageDAO.role))
             .where(MessageDAO.chat_id == chat_id)
