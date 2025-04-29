@@ -1,8 +1,6 @@
-import json
 import logging
 import uuid
-from pathlib import Path
-from typing import Annotated, AsyncGenerator, ClassVar
+from typing import Annotated, AsyncGenerator, ClassVar, cast
 from enum import StrEnum
 from contextlib import aclosing
 
@@ -14,6 +12,7 @@ from ..assistant.assistant_runner import AsyncProcessAssistantRunner
 from ..my_logging.logging_config import setup_logging
 from ..models.message import MessageDTO, ResponseChunkDTO
 from ..repository.message import AsyncMessageRepository
+from ..repository.model import AsyncModelRepository, AsyncS3ModelRepository
 from ..streaming import AsyncResponseGenerator, Stream
 from ..assistant.object_pool import (
     AsyncObjectPool, AsyncPooledObjectContextManager
@@ -41,9 +40,13 @@ class MessageService:
     _runner: ClassVar[AsyncProcessAssistantRunner] = AsyncProcessAssistantRunner()
 
     def __init__(
-        self, message_repository: Annotated[AsyncMessageRepository, Depends()]
-    ):
+        self,
+        message_repository: Annotated[AsyncMessageRepository, Depends()],
+        # TODO: refactor so that model_repository doesn't hold a db connection for methods that don't need it
+        model_repository: Annotated[AsyncModelRepository, Depends(AsyncS3ModelRepository)],
+    ) -> None:
         self._message_repository = message_repository
+        self._model_repository = model_repository
         self._obj_parser = OBJParser()
 
     async def get_by_chat_id(self, chat_id: int) -> list[MessageDTO]:
@@ -145,14 +148,24 @@ class MessageService:
             finally:
                 obj_indexes_list = obj_parser.get_obj_indexes()
                 yield ServerSentEvent(event=Event.OBJ_CONTENT, data=obj_indexes_list)
-
-                debug_logger.debug('send final message')
+                
                 logger.info("send final message")
                 yield ServerSentEvent(event=Event.DONE)
 
                 content = "".join(tokens)
                 assistant_message = MessageDTO(content=content, role="assistant")
                 await self._message_repository.create(chat_id, assistant_message)
+                
+                # parsed_content = OBJParser.extract_obj_content(tokens, obj_indexes_list)
+                # message_content = parsed_content['message_content']
+                # obj_contents = parsed_content['obj_contents']
+
+                # content = "".join(tokens)
+                # assistant_message = MessageDTO(content=message_content, role="assistant")
+                # created_message = await self._message_repository.create(chat_id, assistant_message)
+
+                # for obj_content in obj_contents:
+                #     await self._model_repository.save(cast(int, created_message.id), obj_content)
 
                 del self._stream_pool[stream_id]
 

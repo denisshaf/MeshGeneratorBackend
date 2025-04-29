@@ -19,7 +19,7 @@ class ModelDAO(Base):
     __tablename__ = "models"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    filename: Mapped[str] = mapped_column(String(100), server_default="3DModel")
+    name: Mapped[str] = mapped_column(String(100), server_default="3DModel")
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     content: Mapped[Optional[str]] = mapped_column(Text)
     storage_path: Mapped[Optional[str]] = mapped_column(String(2048))
@@ -38,7 +38,7 @@ class ModelDAO(Base):
 
     def __repr__(self) -> str:
         return (
-            f"<Model(id={self.id}, filename='{self.filename}', user_id={self.user_id})>"
+            f"<Model(id={self.id}, filename='{self.name}', user_id={self.user_id})>"
         )
 
 
@@ -46,6 +46,6 @@ class ModelDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int | None
-    filename: str
+    name: str
     content: str | None = None
     created_at: datetime | None = None

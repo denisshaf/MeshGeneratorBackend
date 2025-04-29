@@ -2,6 +2,7 @@ from types import TracebackType
 from typing import NamedTuple, ClassVar, Self
 from collections import deque
 import logging
+from pprint import pprint
 
 
 debug_logger = logging.getLogger('debug')
@@ -16,57 +17,60 @@ class OutputIndexes(NamedTuple):
 
 class OBJParser:
     _obj_indexes: list[OutputIndexes]
-    _obj_start: int | None = None
-    _obj_end: int | None = None
+    _obj_start: int | None = None  # The index of the first token of the OBJ block
+    _obj_end: int | None = None  # The index of the first token after the OBJ block
     _exclude_start: int | None = None
     _exclude_end: int | None = None
     _counter: int = 0
-    _backtrack_queue: deque
+    _backtrack_queue: deque[str]
+
+    OBJ_VALID_STARTERS: ClassVar[set[str]] = {
+        "v", "vt", "vn", "f", "g", "o", "mtllib", "s", "usemtl", "#"
+    }
+    BACKTRACK_WINDOW_SIZE: ClassVar[int] = 4
 
     def __init__(self) -> None:
         self._obj_indexes = []
-        self._backtrack_queue = deque(maxlen=2)
+        self._backtrack_queue = deque(maxlen=OBJParser.BACKTRACK_WINDOW_SIZE)
 
     def process_token(self, token: str) -> None:
         self._backtrack_queue.append(token)
 
-        # Check if we're not already inside an OBJ block
-        if self._exclude_start is None:
-            # Check for "```obj\n" pattern to start an OBJ block
-            queue_list = list(self._backtrack_queue)
-            if len(queue_list) >= 3 and queue_list[-3:] == ['```', 'obj', '\n']:
-                self._exclude_start = self._counter - 2  # Index of "```" (3rd last token)
-                self._obj_start = self._counter + 1  # Index of the next token after "\n"
-        else:
-            # We're inside an OBJ block, check for "```" pattern to end it
+        # Check for start of direct OBJ content (without markdown markers)
+        if not self._obj_start and self._is_obj_start_line(token):
+            self._obj_start = self._counter
+
+            # Check for code block start (-2 must be a newline): ['```', 'obj', '\n', token]
+            if self._backtrack_queue[-4] == '```' and self._backtrack_queue[-3] == 'obj':
+                self._exclude_start = self._counter - 3
+            else:
+                self._exclude_start = self._counter
+
+        # Check for end of direct OBJ content
+        elif (
+            self._obj_start
+            and not self._obj_end
+            and self._backtrack_queue[-2].endswith('\n')  # Previous token is a newline
+            and not self._is_obj_content(token)
+        ):
+            self._obj_end = self._counter
+
             if token == '```':
-                self._obj_end = self._counter - 1  # Index of the last token of OBJ content
-                self._exclude_end = self._counter  # Index of "```"
-                
-                # Create an OutputIndexes object and add it to the list
-                output_indexes = OutputIndexes(
-                    obj_start=self._obj_start,
-                    obj_end=self._obj_end,
-                    exclude_start=self._exclude_start,
-                    exclude_end=self._exclude_end
-                )
-                self._obj_indexes.append(output_indexes)
-                
-                # Reset state to detect more OBJ blocks
-                self._obj_start = None
-                self._obj_end = None
-                self._exclude_start = None
-                self._exclude_end = None
-        
+                self._exclude_end = self._counter + 2  # +2 to include the closing ``` and the newline
+            else:
+                self._exclude_end = self._counter
+
+            self._finalize_indexes()
+
         self._counter += 1
 
-    def _finalize_indices(self) -> None:
-        """Store the current set of indices and reset for next potential OBJ block."""
+    def _finalize_indexes(self) -> None:
+        """Store the current set of indexes and reset for next potential OBJ block."""
         if (
-            self._obj_start is not None
-            and self._obj_end is not None
-            and self._exclude_start is not None
-            and self._exclude_end is not None
+            self._obj_start
+            and self._obj_end
+            and self._exclude_start
+            and self._exclude_end
         ):
             indexes = OutputIndexes(
                 obj_start=self._obj_start,
@@ -81,40 +85,21 @@ class OBJParser:
         """Check if token starts with valid OBJ commands."""
         if not token.strip():
             return False
-
-        valid_starters = [
-            "v ",
-            "vt ",
-            "vn ",
-            "f ",
-            "g ",
-            "o ",
-            "mtllib ",
-            "s ",
-            "usemtl ",
-        ]
-        return any(token.lstrip().startswith(starter) for starter in valid_starters)
+        
+        return any(token.strip() == starter for starter in OBJParser.OBJ_VALID_STARTERS)
 
     def _is_obj_content(self, token: str) -> bool:
         """Check if token is valid OBJ content."""
         if not token.strip():
             return True  # Empty lines are allowed in OBJ files
-
-        valid_elements = [
-            "v ",
-            "vt ",
-            "vn ",
-            "f ",
-            "g ",
-            "o ",
-            "mtllib ",
-            "s ",
-            "usemtl ",
-            "# ",
-        ]
-        return any(token.lstrip().startswith(elem) for elem in valid_elements)
+        
+        return any(token.strip() == elem for elem in OBJParser.OBJ_VALID_STARTERS)
 
     def get_obj_indexes(self) -> list[OutputIndexes]:
+        if not self._obj_end or not self._exclude_end:
+            self._obj_end = self._counter
+            self._exclude_end = self._counter
+            self._finalize_indexes()
         return self._obj_indexes
 
     def _reset_indexes(self) -> None:
@@ -142,7 +127,7 @@ class OBJParser:
 
 
 tokens = [
-    'here', 'is', 'your', 'obj', 'model:', '\n',
+    'here ', 'is', ' ', 'your ', 'obj', ' ', 'model:', '\n',
     '```', 'obj', '\n',
     '#', ' ', 'Simple', ' ', 'OBJ', ' ', 'file', '\n', 
     '#', ' ', 'Vertices', '\n', 
@@ -162,8 +147,8 @@ tokens = [
     'f', ' ', '2', ' ', '6', ' ', '7', ' ', '3', '\n', 
     'f', ' ', '1', ' ', '2', ' ', '6', ' ', '5', '\n', 
     'f', ' ', '4', ' ', '3', ' ', '7', ' ', '8', '\n',
-    '```' '\n',
-    'are', 'you', 'satisfied', '?'
+    '```', '\n',
+    'are ', 'you ', 'satisfied', '?'
 ]
 
 
@@ -172,4 +157,35 @@ parser = OBJParser()
 for t in tokens:
     parser.process_token(t)
 
-print(parser.get_obj_indexes())
+pprint(parser.get_obj_indexes())
+
+obj_contents = []
+excluded_contents = []
+prev_obj_end_idx = 0
+
+for obj_indexes in parser.get_obj_indexes():
+
+    obj_start = obj_indexes.obj_start
+    obj_end = obj_indexes.obj_end
+    exclude_start = obj_indexes.exclude_start
+    exclude_end = obj_indexes.exclude_end
+
+    # Extract the excluded content
+    excluded_content = ''.join(tokens[prev_obj_end_idx:exclude_start])
+    excluded_contents.append(excluded_content)
+
+    # Extract the OBJ content
+    obj_content = ''.join(tokens[obj_start:obj_end])
+    obj_contents.append(obj_content)
+
+    prev_obj_end_idx = exclude_end
+
+excluded_content = ''.join(tokens[prev_obj_end_idx:])
+excluded_contents.append(excluded_content)
+
+full_excluded_content = ''.join(excluded_contents)
+
+print("OBJ Contents:")
+pprint(obj_contents)
+print("Excluded Content:")
+pprint(full_excluded_content)
