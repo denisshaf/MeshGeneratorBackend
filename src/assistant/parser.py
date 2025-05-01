@@ -1,10 +1,9 @@
-from types import TracebackType
-from typing import TypedDict, ClassVar, Self
-from collections import deque
 import logging
+from collections import deque
+from types import TracebackType
+from typing import ClassVar, Self, TypedDict
 
-
-debug_logger = logging.getLogger('debug')
+debug_logger = logging.getLogger("debug")
 
 
 class OutputIndexes(TypedDict):
@@ -29,7 +28,16 @@ class OBJParser:
     _backtrack_queue: deque[str]
 
     OBJ_VALID_STARTERS: ClassVar[set[str]] = {
-        "v", "vt", "vn", "f", "g", "o", "mtllib", "s", "usemtl", "#"
+        "v",
+        "vt",
+        "vn",
+        "f",
+        "g",
+        "o",
+        "mtllib",
+        "s",
+        "usemtl",
+        "#",
     }
     BACKTRACK_WINDOW_SIZE: ClassVar[int] = 4
 
@@ -45,7 +53,10 @@ class OBJParser:
             self._obj_start = self._counter
 
             # Check for code block start (-2 must be a newline): ['```', 'obj', '\n', token]
-            if self._backtrack_queue[-4] == '```' and self._backtrack_queue[-3] == 'obj':
+            if (
+                self._backtrack_queue[-4] == "```"
+                and self._backtrack_queue[-3] == "obj"
+            ):
                 self._exclude_start = self._counter - 3
             else:
                 self._exclude_start = self._counter
@@ -54,13 +65,15 @@ class OBJParser:
         elif (
             self._obj_start
             and not self._obj_end
-            and self._backtrack_queue[-2].endswith('\n')  # Previous token is a newline
+            and self._backtrack_queue[-2].endswith("\n")  # Previous token is a newline
             and not self._is_obj_content(token)
         ):
             self._obj_end = self._counter
 
-            if token == '```':
-                self._exclude_end = self._counter + 2  # +2 to include the closing ``` and the newline
+            if token == "```":
+                self._exclude_end = (
+                    self._counter + 2
+                )  # +2 to include the closing ``` and the newline
             else:
                 self._exclude_end = self._counter
 
@@ -89,14 +102,14 @@ class OBJParser:
         """Check if token starts with valid OBJ commands."""
         if not token.strip():
             return False
-        
+
         return any(token.strip() == starter for starter in OBJParser.OBJ_VALID_STARTERS)
 
     def _is_obj_content(self, token: str) -> bool:
         """Check if token is valid OBJ content."""
         if not token.strip():
             return True  # Empty lines are allowed in OBJ files
-        
+
         return any(token.strip() == elem for elem in OBJParser.OBJ_VALID_STARTERS)
 
     def get_obj_indexes(self) -> list[OutputIndexes]:
@@ -107,31 +120,32 @@ class OBJParser:
         return self._obj_indexes
 
     @staticmethod
-    def extract_obj_content(tokens: list[str], obj_indexes_list: list[OutputIndexes]) -> ParsedContent:
+    def extract_obj_content(
+        tokens: list[str], obj_indexes_list: list[OutputIndexes]
+    ) -> ParsedContent:
         obj_contents = []
         message_parts = []
         prev_obj_end_idx = 0
-        
-        for obj_indexes in obj_indexes_list:
-            obj_start = obj_indexes['obj_start']
-            obj_end = obj_indexes['obj_end']
-            exclude_start = obj_indexes['exclude_start']
-            exclude_end = obj_indexes['exclude_end']
 
-            excluded_content = ''.join(tokens[prev_obj_end_idx:exclude_start])
+        for obj_indexes in obj_indexes_list:
+            obj_start = obj_indexes["obj_start"]
+            obj_end = obj_indexes["obj_end"]
+            exclude_start = obj_indexes["exclude_start"]
+            exclude_end = obj_indexes["exclude_end"]
+
+            excluded_content = "".join(tokens[prev_obj_end_idx:exclude_start])
             message_parts.append(excluded_content)
 
-            obj_content = ''.join(tokens[obj_start:obj_end])
+            obj_content = "".join(tokens[obj_start:obj_end])
             obj_contents.append(obj_content)
 
             prev_obj_end_idx = exclude_end
 
-        excluded_content = ''.join(tokens[prev_obj_end_idx:])
+        excluded_content = "".join(tokens[prev_obj_end_idx:])
         message_parts.append(excluded_content)
 
         result = ParsedContent(
-            message_content=''.join(message_parts),
-            obj_contents=obj_contents
+            message_content="".join(message_parts), obj_contents=obj_contents
         )
         return result
 
@@ -149,7 +163,7 @@ class OBJParser:
 
     def __enter__(self) -> Self:
         return self
-    
+
     def __exit__(
         self,
         exc_type: type[BaseException] | None,

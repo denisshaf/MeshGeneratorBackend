@@ -1,6 +1,6 @@
 import time
-from typing import Any, overload, Literal
-from collections.abc import Iterable, Generator
+from collections.abc import Generator, Iterable
+from typing import Any, Literal, overload
 
 from .chat_protocol import HasChatCompletion
 
@@ -34,7 +34,10 @@ class LlamaMock(HasChatCompletion):
     ) -> list[dict]: ...
 
     def create_chat_completion(
-        self, messages: list[Any], temperature: float = 0.2, stream: bool = False,
+        self,
+        messages: list[Any],
+        temperature: float = 0.2,
+        stream: bool = False,
     ) -> Iterable[dict]:
         if not stream:
             return [

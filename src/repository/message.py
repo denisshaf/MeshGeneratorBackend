@@ -7,12 +7,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
 
 from ..db import get_db_session
-from ..my_logging.logging_config import setup_logging
 from ..models.chat_role import ChatRoleDAO
 from ..models.message import MessageDAO, MessageDTO
 from ..models.model import ModelDTO
+from ..my_logging.logging_config import setup_logging
 
-setup_logging() 
+setup_logging()
 debug_logger = logging.getLogger("debug")
 
 
@@ -35,11 +35,8 @@ class AsyncMessageRepository:
         )
 
         self._db_session.add(new_message)
-        debug_logger.debug(f'added message: {new_message}')
         await self._db_session.commit()
-        debug_logger.debug(f'commited message: {new_message}')
         await self._db_session.refresh(new_message)
-        debug_logger.debug(f'refreshed message: {new_message}')
 
         message_dto = MessageDTO(
             id=new_message.id,
@@ -69,15 +66,15 @@ class AsyncMessageRepository:
                 role=message.role.name,
                 created_at=message.created_at,
                 chat_id=message.chat_id,
-                models=[
-                    ModelDTO.model_validate(model)
-                    for model in message.models
-                ],
+                models=[ModelDTO.model_validate(model) for model in message.models],
             )
             for message in messages
         ]
 
         return messages_dto
+
+    async def aclose(self) -> None:
+        await self._db_session.close()
 
     async def update(self, message: MessageDTO) -> MessageDTO: ...  # type: ignore
     async def delete(self, user_id: str) -> bool: ...  # type: ignore

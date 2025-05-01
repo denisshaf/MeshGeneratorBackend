@@ -37,9 +37,7 @@ class ModelDAO(Base):
     __table_args__ = (Index("models_user_id_idx", "user_id"),)
 
     def __repr__(self) -> str:
-        return (
-            f"<Model(id={self.id}, filename='{self.name}', user_id={self.user_id})>"
-        )
+        return f"<Model(id={self.id}, filename='{self.name}', user_id={self.user_id})>"
 
 
 class ModelDTO(BaseModel):

@@ -1,5 +1,5 @@
-from typing import Any, Protocol
 from collections.abc import Iterable
+from typing import Any, Protocol
 
 from ..models.message import ResponseChunkDTO
 
@@ -12,5 +12,4 @@ class HasChatCompletion(Protocol):
         stream: bool = ...,
         *args: Any,
         **kwargs: Any
-    ) -> Iterable[dict]:
-        ...
+    ) -> Iterable[dict]: ...

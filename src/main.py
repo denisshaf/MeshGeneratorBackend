@@ -1,20 +1,16 @@
-import sys
-sys.path.append(r"D:\Study\Диплом)\project\MeshGeneratorBackend")
-
-
-# if __name__ == "__main__":
-
 import logging
+import re
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
-from fastapi import APIRouter, Body, FastAPI
+from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.assistant.assistant_runner import AsyncProcessAssistantRunner
+from src.db import DBSessionMiddleware
 from src.my_logging.logging_config import setup_logging
 from src.my_logging.logging_middleware import LoggingMiddleware
-from src.routers import chat, message, user, model
+from src.routers import chat, message, model, user
 
 setup_logging()
 logger = logging.getLogger("app")
@@ -45,7 +41,12 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["Content-Type", "Authorization"],
 )
-
+app.add_middleware(
+    DBSessionMiddleware,
+    no_session_close_paths=[
+        re.compile(r".*?/users/me/chats/[^/]+/messages/[^/]+/streams/[^/]+")
+    ],
+)
 app.add_middleware(LoggingMiddleware, excluded_paths=["/streams"])
 
 # app.add_middleware(
@@ -55,7 +56,3 @@ app.add_middleware(LoggingMiddleware, excluded_paths=["/streams"])
 #     allow_methods=["*"],
 #     allow_headers=["*"],
 # )
-
-# import uvicorn
-
-# uvicorn.run(app)

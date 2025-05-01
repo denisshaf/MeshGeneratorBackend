@@ -6,7 +6,12 @@ from ..repository.model import AsyncModelRepository, AsyncS3ModelRepository
 
 
 class ModelService:
-    def __init__(self, model_repository: Annotated[AsyncModelRepository, Depends(AsyncS3ModelRepository)]):
+    def __init__(
+        self,
+        model_repository: Annotated[
+            AsyncModelRepository, Depends(AsyncS3ModelRepository)
+        ],
+    ):
         self._model_repository = model_repository
 
     async def get_by_id(self, model_id: int) -> str:

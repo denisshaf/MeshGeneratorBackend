@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import typing
 from datetime import datetime
-from typing import Optional, TypedDict, Literal
+from typing import Literal, Optional, TypedDict
 
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import ForeignKey, Index, Text, func

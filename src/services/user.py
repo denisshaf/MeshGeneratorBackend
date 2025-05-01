@@ -3,8 +3,8 @@ from typing import Annotated
 
 from fastapi import Depends
 
-from ..my_logging.logging_config import setup_logging
 from ..models.user import UserDTO
+from ..my_logging.logging_config import setup_logging
 from ..repository.chat import AsyncChatRepository
 from ..repository.user import AsyncUserRepository
 

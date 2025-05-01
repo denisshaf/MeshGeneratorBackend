@@ -3,8 +3,8 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from ..my_logging.logging_config import setup_logging
 from ..models.user import UserDTO
+from ..my_logging.logging_config import setup_logging
 from ..services import user
 from ..utils.authentication import CurrentUserDep, get_current_user
 

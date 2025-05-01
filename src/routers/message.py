@@ -6,11 +6,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 
 from ..dependencies import validate_chat_id
+from ..models.message import MessageDTO
 from ..my_logging.logging_config import setup_logging
-from ..models.message import MessageDTO, ResponseChunkDTO
 from ..services.message import MessageService
-from ..services.user import UserService
-from ..utils.authentication import CurrentUserDep
 from .sse_streamer import async_sse_stream
 
 setup_logging()
@@ -20,10 +18,6 @@ debug_logger = logging.getLogger("debug")
 router = APIRouter(
     prefix="/users/me/chats/{chat_id}/messages",
     tags=["Messages"],
-    # dependencies=[
-    #     Depends(validate_chat_id),
-    #     Depends(get_current_user),
-    # ],
 )
 
 
@@ -55,8 +49,14 @@ async def generate_answer(
     stream_id: uuid.UUID,
     message_service: Annotated[MessageService, Depends()],
 ) -> StreamingResponse:
-    stream = message_service.create_stream(chat_id, stream_id)
-    return StreamingResponse(async_sse_stream(stream), media_type="text/event-stream")
+    try:
+        debug_logger.debug("start get message stream")
+        stream = message_service.create_stream(chat_id, stream_id)
+        return StreamingResponse(
+            async_sse_stream(stream), media_type="text/event-stream"
+        )
+    finally:
+        debug_logger.debug("return from get message stream")
 
 
 @router.delete("/{message_id}/streams/{stream_id}")

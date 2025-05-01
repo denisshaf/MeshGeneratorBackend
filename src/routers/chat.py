@@ -4,8 +4,8 @@ from typing import Annotated
 from fastapi import APIRouter, Body, Depends, HTTPException, status
 
 from ..dependencies import validate_chat_id
-from ..my_logging.logging_config import setup_logging
 from ..models.chat import ChatDTO
+from ..my_logging.logging_config import setup_logging
 from ..services.chat import ChatService
 from ..utils.authentication import CurrentUserDep
 

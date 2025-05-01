@@ -6,8 +6,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db import get_db_session
-from ..my_logging.logging_config import setup_logging
 from ..models.user import UserDAO, UserDTO
+from ..my_logging.logging_config import setup_logging
 
 setup_logging()
 debug_logger = logging.getLogger("debug")

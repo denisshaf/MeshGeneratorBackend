@@ -1,19 +1,18 @@
 import asyncio
 import functools
+import logging
 import multiprocessing as mp
 import uuid
 from concurrent.futures import ProcessPoolExecutor
 from multiprocessing.synchronize import Event as EventClass
 from queue import Empty, Queue
 from typing import AsyncGenerator, ClassVar
-import logging
 
 from ..models.message import ResponseChunkDTO
 from ..utils.singletone import Singleton
 from .chat_assistant import ChatAssistant
 
-
-debug_logger = logging.getLogger('debug')
+debug_logger = logging.getLogger("debug")
 
 
 class AsyncProcessAssistantRunner(metaclass=Singleton):
@@ -81,7 +80,7 @@ class AsyncProcessAssistantRunner(metaclass=Singleton):
         stop_event = self._manager.Event()
         self._stop_events[stream_id] = stop_event
 
-        debug_logger.debug(f'assistant: {assistant}')
+        debug_logger.debug(f"assistant: {assistant}")
 
         loop = asyncio.get_running_loop()
         task = loop.run_in_executor(

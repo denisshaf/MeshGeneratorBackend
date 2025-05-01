@@ -1,9 +1,9 @@
 import logging
 from dataclasses import dataclass
-from typing import AsyncGenerator, AsyncIterator, TypeAlias
+from typing import AsyncGenerator, TypeAlias
 
-from .my_logging.logging_config import setup_logging
 from .models.message import ResponseChunkDTO
+from .my_logging.logging_config import setup_logging
 
 setup_logging()
 debug_logger = logging.getLogger("debug")

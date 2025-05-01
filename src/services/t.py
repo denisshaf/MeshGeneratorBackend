@@ -1,9 +1,8 @@
-from types import TracebackType
-from typing import NamedTuple, ClassVar, Self
-from collections import deque
 import logging
+from collections import deque
 from pprint import pprint
-
+from types import TracebackType
+from typing import ClassVar, NamedTuple, Self
 
 debug_logger = logging.getLogger('debug')
 
