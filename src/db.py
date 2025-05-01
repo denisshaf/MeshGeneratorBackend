@@ -21,7 +21,7 @@ port = db_config["port"]
 database = db_config["database"]
 
 _engine = create_async_engine(
-    f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{database}"
+    f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{database}", echo=False
 )
 
 AsyncSessionFactory = async_sessionmaker(bind=_engine, expire_on_commit=False)

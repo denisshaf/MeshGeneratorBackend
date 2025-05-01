@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 
 from ..dependencies import validate_chat_id
-from ..logging.logging_config import setup_logging
+from ..my_logging.logging_config import setup_logging
 from ..models.message import MessageDTO, ResponseChunkDTO
 from ..services.message import MessageService
 from ..services.user import UserService

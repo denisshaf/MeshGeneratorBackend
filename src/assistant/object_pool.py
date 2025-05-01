@@ -5,7 +5,7 @@ import logging
 from types import TracebackType
 from typing import Callable, ClassVar
 
-from ..logging.logging_config import setup_logging
+from ..my_logging.logging_config import setup_logging
 
 setup_logging()
 debug_logger = logging.getLogger("debug")

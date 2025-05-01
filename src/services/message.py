@@ -4,14 +4,14 @@ import uuid
 from pathlib import Path
 from typing import Annotated, AsyncGenerator, ClassVar
 from enum import StrEnum
+from contextlib import aclosing
 
 from fastapi import Depends
 import yaml
 
 from ..assistant.assistant_runner import AsyncProcessAssistantRunner
-from ..assistant.chat_assistant import ChatAssistant, MockChatAssistant, ObjChatAssistant
 # from ..assistant.llama import LlamaMock as Llama
-from ..logging.logging_config import setup_logging
+from ..my_logging.logging_config import setup_logging
 from ..models.message import MessageDTO, ResponseChunkDTO
 from ..repository.message import AsyncMessageRepository
 from ..streaming import AsyncResponseGenerator, Stream
@@ -19,13 +19,15 @@ from ..assistant.object_pool import (
     AsyncObjectPool, AsyncPooledObjectContextManager
 )
 from ..assistant.parser import OBJParser
-from ..assistant.chat_assistant import LlamaChatAssistant, MockChatAssistant, LlamaMockChatAssistant, ObjChatAssistant
+from ..assistant.chat_assistant import ChatAssistant, LlamaChatAssistant, MockChatAssistant, LlamaMockChatAssistant, ObjChatAssistant
 from ..routers.sse_streamer import ServerSentEvent
-
+from ..db import SessionDependency
 
 setup_logging()
 debug_logger = logging.getLogger("debug")
 logger = logging.getLogger("app")
+
+logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
 
 
 class Event(StrEnum):
@@ -98,6 +100,17 @@ class MessageService:
             async for chunk in gen:
                 yield chunk
 
+    async def _mock_stream_message(
+        self,
+        message_history: list[ResponseChunkDTO],
+        stream_id: uuid.UUID,
+    ) -> AsyncResponseGenerator:
+        import asyncio
+
+        for i in range(20):
+            yield ResponseChunkDTO(role="assistant", content=f"Mock message {i}\n")
+            await asyncio.sleep(1)
+
     async def create_stream(
         self, chat_id: int, stream_id: uuid.UUID
     ) -> AsyncGenerator[ServerSentEvent]:
@@ -111,41 +124,38 @@ class MessageService:
         stream.generator = self._stream_message(message_history, stream_id)
         stream.is_running = True
 
-        with self._obj_parser:
+        with self._obj_parser as obj_parser:
             try:
-                content_list = []
+                tokens = []
                 chunk: ResponseChunkDTO
-                async for chunk in stream:
-                    content = chunk["content"]
-                    if content == "EOS":
-                        break
 
-                    content_list.append(content)
+                async with aclosing(stream.generator) as stream_gen:
+                    async for chunk in stream_gen:
+                        if not stream.is_running:
+                            self._runner.stop_stream(stream_id)
+                            break
 
-                    self._obj_parser.process_token(content)
+                        content = chunk["content"]
+                        if content == "EOS":
+                            break
 
-                    yield ServerSentEvent(data=chunk)
-
-                    if not stream.is_running:
-                        debug_logger.debug("stream stopped")
-                        self._runner.stop_stream(stream_id)
-                        break
+                        tokens.append(content)
+                        obj_parser.process_token(content)
+                        yield ServerSentEvent(data=chunk)
             finally:
-                obj_indexes_list = self._obj_parser.get_obj_indexes()
-                debug_logger.debug(f'OBJ indexes: {obj_indexes_list}')
+                obj_indexes_list = obj_parser.get_obj_indexes()
                 yield ServerSentEvent(event=Event.OBJ_CONTENT, data=obj_indexes_list)
 
                 debug_logger.debug('send final message')
                 logger.info("send final message")
                 yield ServerSentEvent(event=Event.DONE)
 
-                content = "".join(content_list)
+                content = "".join(tokens)
                 assistant_message = MessageDTO(content=content, role="assistant")
                 await self._message_repository.create(chat_id, assistant_message)
 
                 del self._stream_pool[stream_id]
 
-    # FIXME: stop generation doesn't work
     async def stop_generation(self, stream_id: uuid.UUID) -> None:
         if stream_id not in self._stream_pool:
             raise ValueError("Stream not found")
@@ -154,14 +164,3 @@ class MessageService:
         assert stream.generator
 
         stream.is_running = False
-
-        # import asyncio
-        # from contextlib import suppress
-
-        # task = asyncio.create_task(stream.generator.__anext__())
-        # task.cancel()
-        # with suppress(asyncio.CancelledError):
-        #     await task
-        # await stream.generator.aclose()
-
-        # await stream.generator.asend(StopAsyncIteration)

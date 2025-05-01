@@ -9,7 +9,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import jwt
 from jose.exceptions import JWTError
 
-from ..logging.logging_config import setup_logging
+from ..my_logging.logging_config import setup_logging
 
 setup_logging()
 debug_logger = logging.getLogger("debug")

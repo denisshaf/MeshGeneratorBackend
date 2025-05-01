@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
 
 from ..db import get_db_session
-from ..logging.logging_config import setup_logging
+from ..my_logging.logging_config import setup_logging
 from ..models.chat_role import ChatRoleDAO
 from ..models.message import MessageDAO, MessageDTO
 from ..models.model import ModelDTO
@@ -35,15 +35,18 @@ class AsyncMessageRepository:
         )
 
         self._db_session.add(new_message)
+        debug_logger.debug(f'added message: {new_message}')
         await self._db_session.commit()
+        debug_logger.debug(f'commited message: {new_message}')
         await self._db_session.refresh(new_message)
+        debug_logger.debug(f'refreshed message: {new_message}')
 
         message_dto = MessageDTO(
             id=new_message.id,
             content=new_message.content,
             chat_id=new_message.chat_id,
             created_at=new_message.created_at,
-            role=role.name, 
+            role=role.name,
         )
 
         return message_dto
@@ -53,6 +56,7 @@ class AsyncMessageRepository:
             select(MessageDAO)
             .options(joinedload(MessageDAO.role))
             .where(MessageDAO.chat_id == chat_id)
+            .options(selectinload(MessageDAO.models))
         )
 
         result = await self._db_session.execute(query)
@@ -65,11 +69,15 @@ class AsyncMessageRepository:
                 role=message.role.name,
                 created_at=message.created_at,
                 chat_id=message.chat_id,
+                models=[
+                    ModelDTO.model_validate(model)
+                    for model in message.models
+                ],
             )
             for message in messages
         ]
 
         return messages_dto
 
-    async def update(self, message: MessageDTO) -> MessageDTO: ...
-    async def delete(self, user_id: str) -> bool: ...
+    async def update(self, message: MessageDTO) -> MessageDTO: ...  # type: ignore
+    async def delete(self, user_id: str) -> bool: ...  # type: ignore
