@@ -16,9 +16,7 @@ env = dotenv_values()
 
 debug_logger = logging.getLogger("debug")
 
-
-__location__ = Path(__file__).resolve().parent
-with open(__location__ / "config.yaml") as file:
+with open("src/config.yaml") as file:
     db_config = yaml.safe_load(file)["database"]
 
 user = env["POSTGRES_USER"]

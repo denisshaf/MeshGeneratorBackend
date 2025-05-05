@@ -367,5 +367,5 @@ class ObjChatAssistant(ChatAssistant):
 
         for token in tokens:
             response_chunk = ResponseChunkDTO(role="assistant", content=token)
-            time.sleep(0.01)
+            time.sleep(0.1)
             yield response_chunk

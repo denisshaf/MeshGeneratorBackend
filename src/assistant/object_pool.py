@@ -21,7 +21,6 @@ class AsyncObjectPool[T]:
     def get_pool(
         cls: type[AsyncObjectPool[T]], factory: Callable[[], T], max_count: int = 3
     ) -> AsyncObjectPool[T]:
-        debug_logger.debug(f"get_pool: class = {cls}, {cls._pool=}")
         if not cls._pool:
             pool = cls(factory, max_count)
             cls._pool = pool
@@ -34,45 +33,32 @@ class AsyncObjectPool[T]:
         self._factory = factory
 
     async def acquire(self, timeout: float | None = None) -> T:
-        debug_logger.debug(f"acquire from pool {self}")
-        debug_logger.debug(f"created objects: {self._created_count}")
-
         try:
             obj = self._queue.get_nowait()
-            debug_logger.debug("Objects are free. Get the object")
             return obj
         except asyncio.QueueEmpty:
             async with self._lock:
                 if self._created_count < self._max_count:
                     self._created_count += 1
-                    debug_logger.debug(
-                        f"Object created. Objects: {self._created_count}"
-                    )
 
                     loop = asyncio.get_event_loop()
                     obj = await loop.run_in_executor(None, self._factory)
-                    debug_logger.debug(f"obj: {obj}")
                     return obj
 
-        debug_logger.debug("Wait to get an object")
         if timeout:
             try:
                 obj = await asyncio.wait_for(self._queue.get(), timeout)
-                debug_logger.debug("Object acquired after waiting")
                 return obj
             except asyncio.TimeoutError:
-                debug_logger.debug("Timeout waiting for object")
                 raise TimeoutError(
                     f"Timed out waiting for object after {timeout} seconds"
                 )
         else:
             obj = await self._queue.get()
-            debug_logger.debug("Object acquired after waiting")
             return obj
 
     async def release(self, obj: T) -> None:
         await self._queue.put(obj)
-        debug_logger.debug(f"Object released. Queue size: {self._queue.qsize()}")
 
 
 class AsyncPooledObjectContextManager[T]:

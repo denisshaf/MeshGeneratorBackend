@@ -15,15 +15,14 @@ from ..assistant.chat_assistant import (
 from ..assistant.object_pool import (
     AsyncObjectPool, AsyncPooledObjectContextManager
 )
-from ..assistant.parser import OBJParser
-from ..db import SessionDependency
+from .parser import OBJParser
 from ..models.message import MessageDTO, ResponseChunkDTO
 # from ..assistant.llama import LlamaMock as Llama
 from ..my_logging.logging_config import setup_logging
 from ..repository.message import AsyncMessageRepository
 from ..repository.model import AsyncModelRepository, AsyncS3ModelRepository
 from ..routers.sse_streamer import ServerSentEvent
-from ..streaming import AsyncResponseGenerator, Stream
+from .streaming import AsyncResponseGenerator, Stream
 
 setup_logging()
 debug_logger = logging.getLogger("debug")
@@ -98,8 +97,6 @@ class MessageService:
 
         async with AsyncPooledObjectContextManager(assistant_pool) as chat_assistant:
 
-            debug_logger.debug(f"chat_assistant: {chat_assistant}")
-
             gen = self._runner.stream_response(
                 chat_assistant, message_history, stream_id
             )
@@ -114,7 +111,7 @@ class MessageService:
     ) -> AsyncResponseGenerator:
         import asyncio
 
-        for i in range(10):
+        for i in range(30):
             yield ResponseChunkDTO(role="assistant", content=f"{i} ")
             await asyncio.sleep(1)
 

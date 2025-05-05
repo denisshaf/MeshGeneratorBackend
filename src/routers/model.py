@@ -14,7 +14,7 @@ router = APIRouter(
 async def get_batch(
     id: Annotated[list[int], Query()], model_service: Annotated[ModelService, Depends()]
 ) -> dict[int, str]:
-    urls = await model_service.get_batch(id)
+    urls = await model_service.get_batch_urls(id)
     return urls
 
 
@@ -22,5 +22,5 @@ async def get_batch(
 async def get_model(
     model_id: int, model_service: Annotated[ModelService, Depends()]
 ) -> str:
-    url = await model_service.get_by_id(model_id)
+    url = await model_service.get_url_by_id(model_id)
     return url

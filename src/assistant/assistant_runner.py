@@ -21,7 +21,7 @@ class AsyncProcessAssistantRunner(metaclass=Singleton):
     _running_tasks: ClassVar[dict[uuid.UUID, asyncio.Future]] = {}
     _stop_events: ClassVar[dict[uuid.UUID, EventClass]] = {}
 
-    def run_assistant(
+    def _run_assistant(
         self,
         assistant: ChatAssistant,
         query: list[ResponseChunkDTO],
@@ -80,13 +80,11 @@ class AsyncProcessAssistantRunner(metaclass=Singleton):
         stop_event = self._manager.Event()
         self._stop_events[stream_id] = stop_event
 
-        debug_logger.debug(f"assistant: {assistant}")
-
         loop = asyncio.get_running_loop()
         task = loop.run_in_executor(
             self._process_pool,
             functools.partial(
-                self.run_assistant,
+                self._run_assistant,
                 assistant=assistant,
                 query=query,
                 queue=result_queue,

@@ -10,7 +10,7 @@ from fastapi import Depends
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..db import get_db_session
+from .db import get_db_session
 from ..models.model import ModelDAO, ModelDTO
 
 logger = logging.getLogger("app")
@@ -24,9 +24,9 @@ class AsyncModelRepository(ABC):
     @abstractmethod
     async def save(self, message_id: int, content: str) -> ModelDTO: ...
     @abstractmethod
-    async def get(self, model_id: int) -> str: ...
+    async def get_url(self, model_id: int) -> str: ...
     @abstractmethod
-    async def get_batch(self, model_ids: list[int]) -> dict[int, str]: ...
+    async def get_batch_urls(self, model_ids: list[int]) -> dict[int, str]: ...
     @abstractmethod
     async def aclose(self) -> None: ...
 
@@ -124,7 +124,7 @@ class AsyncS3ModelRepository(AsyncModelRepository):
 
         return cast(str, response)
 
-    async def get(self, model_id: int) -> str:
+    async def get_url(self, model_id: int) -> str:
         query = select(ModelDAO).filter(ModelDAO.id == model_id)
         result = await self._db_session.execute(query)
         model = result.scalar_one_or_none()
@@ -140,7 +140,7 @@ class AsyncS3ModelRepository(AsyncModelRepository):
 
         return presigned_url
 
-    async def get_batch(self, model_ids: list[int]) -> dict[int, str]:
+    async def get_batch_urls(self, model_ids: list[int]) -> dict[int, str]:
         query = select(ModelDAO).filter(ModelDAO.id.in_(model_ids))
         result = await self._db_session.execute(query)
         models = result.scalars().all()

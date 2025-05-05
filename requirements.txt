@@ -3,3 +3,4 @@ llama-cpp-python==0.3.8
 SQLAlchemy==2.0.40
 asyncpg==0.30.0
 python-jose==3.4.0
+alembic==1.15.2

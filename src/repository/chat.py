@@ -5,7 +5,7 @@ from fastapi import Depends
 from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..db import get_db_session
+from .db import get_db_session
 from ..models.chat import ChatDAO, ChatDTO
 from ..models.user import UserDAO
 from ..my_logging.logging_config import setup_logging

@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
 
-from ..db import get_db_session
+from .db import get_db_session
 from ..models.chat_role import ChatRoleDAO
 from ..models.message import MessageDAO, MessageDTO
 from ..models.model import ModelDTO

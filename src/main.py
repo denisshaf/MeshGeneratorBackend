@@ -7,7 +7,7 @@ from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.assistant.assistant_runner import AsyncProcessAssistantRunner
-from src.db import DBSessionMiddleware
+from src.repository.db import DBSessionMiddleware
 from src.my_logging.logging_config import setup_logging
 from src.my_logging.logging_middleware import LoggingMiddleware
 from src.routers import chat, message, model, user
