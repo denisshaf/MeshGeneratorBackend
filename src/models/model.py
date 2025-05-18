@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import typing
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Any, Self, Annotated
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import ForeignKey, Index, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -41,9 +41,41 @@ class ModelDAO(Base):
 
 
 class ModelDTO(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(
+        from_attributes=True,
+        validate_by_name=True,
+        validate_by_alias=True
+    )
 
     id: int | None
     name: str
     content: str | None = None
+    url: Annotated[str | None, Field(validation_alias="storage_path")] = None
     created_at: datetime | None = None
+    is_saved: bool = False
+
+    @classmethod
+    def model_validate(
+        cls,
+        obj: Any,
+        *,
+        strict: bool | None = None,
+        from_attributes: bool | None = None,
+        context: Any = None,
+        by_alias: bool | None = None,
+        by_name: bool | None = None
+    ) -> Self:
+        result = super().model_validate(
+            obj,
+            strict=strict,
+            from_attributes=from_attributes,
+            context=context,
+            by_alias=by_alias,
+            by_name=by_name
+        )
+
+        if isinstance(obj, Base) and hasattr(obj, "user_id"):
+            result.is_saved = obj.user_id is not None
+        
+        return result
+

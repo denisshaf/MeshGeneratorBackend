@@ -7,7 +7,7 @@ import boto3
 from botocore.exceptions import ClientError
 from dotenv import load_dotenv
 from fastapi import Depends
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .db import get_db_session
@@ -30,14 +30,38 @@ class AsyncModelRepository(ABC):
     @abstractmethod
     async def aclose(self) -> None: ...
 
+    def __init__(self, db_session: Annotated[AsyncSession, Depends(get_db_session)]):
+        self._db_session = db_session
+
+    async def set_user_id(self, user_id: int | None, model_id: int) -> None:
+        query = (
+            update(ModelDAO)
+            .filter(ModelDAO.id == model_id)
+            .values(user_id=user_id)
+        )
+        result = await self._db_session.execute(query)
+
+        await self._db_session.commit()
+
+        if not result.rowcount:
+            raise ValueError(f"Model with id {model_id} not found")
+
+    async def get_having_user_id(self, user_id: int) -> list[ModelDTO]:
+        query = select(ModelDAO).filter(ModelDAO.user_id == user_id)
+        result = await self._db_session.execute(query)
+        model_daos = result.scalars().all()
+        
+        models = [ModelDTO.model_validate(model_dao) for model_dao in model_daos]
+        return models
+
 
 class AsyncS3ModelRepository(AsyncModelRepository):
     def __init__(
         self, db_session: Annotated[AsyncSession, Depends(get_db_session)]
     ) -> None:
-        self._s3 = boto3.client("s3")
-        self._db_session = db_session
+        super().__init__(db_session)
 
+        self._s3 = boto3.client("s3")
         self._bucket_name_prefix = "obj-storage"
         self._bucket_name = self._get_or_create_bucket(self._bucket_name_prefix)
 
