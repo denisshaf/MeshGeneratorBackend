@@ -16,10 +16,17 @@ debug_logger = logging.getLogger("debug")
 
 
 class AsyncProcessAssistantRunner(metaclass=Singleton):
+    MAX_WORKERS_DEFAULT = 1
+
     _manager: ClassVar = mp.Manager()
-    _process_pool: ClassVar = ProcessPoolExecutor(max_workers=4)
+    _process_pool: ClassVar[ProcessPoolExecutor | None] = None
     _running_tasks: ClassVar[dict[uuid.UUID, asyncio.Future]] = {}
     _stop_events: ClassVar[dict[uuid.UUID, EventClass]] = {}
+
+    def __init__(self, max_workers: int = MAX_WORKERS_DEFAULT):
+        AsyncProcessAssistantRunner._process_pool = ProcessPoolExecutor(
+            max_workers=max_workers
+        )
 
     def _run_assistant(
         self,
@@ -68,7 +75,7 @@ class AsyncProcessAssistantRunner(metaclass=Singleton):
                 ):
                     break
 
-                raise TimeoutError("Queue get timed out")
+                raise TimeoutError("Queue got timed out")
 
     def stream_response(
         self,
@@ -77,6 +84,8 @@ class AsyncProcessAssistantRunner(metaclass=Singleton):
         stream_id: uuid.UUID,
     ) -> AsyncGenerator[ResponseChunkDTO, None]:
         result_queue = self._manager.Queue()
+
+        debug_logger.debug(f"stream_response: {stream_id=}, queue={result_queue}")
         stop_event = self._manager.Event()
         self._stop_events[stream_id] = stop_event
 

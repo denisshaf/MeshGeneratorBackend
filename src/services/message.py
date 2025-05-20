@@ -3,6 +3,7 @@ import uuid
 from contextlib import aclosing
 from enum import StrEnum
 from typing import Annotated, AsyncGenerator, ClassVar, cast
+from datetime import datetime
 
 import yaml
 from fastapi import Depends
@@ -16,7 +17,7 @@ from ..assistant.object_pool import (
     AsyncObjectPool, AsyncPooledObjectContextManager
 )
 from .parser import OBJParser
-from ..models.message import MessageDTO, ResponseChunkDTO
+from ..models.message import MessageDTO, ResponseChunkDTO, MessageRole
 # from ..assistant.llama import LlamaMock as Llama
 from ..my_logging.logging_config import setup_logging
 from ..repository.message import AsyncMessageRepository
@@ -37,9 +38,9 @@ class Event(StrEnum):
     ERROR = "error"
 
 
-class MessageService:
+class MessageService:    
     _stream_pool: ClassVar[dict[uuid.UUID, Stream]] = dict()
-    _runner: ClassVar[AsyncProcessAssistantRunner] = AsyncProcessAssistantRunner()
+    _runner: ClassVar[AsyncProcessAssistantRunner] = None
 
     def __init__(
         self,
@@ -51,6 +52,12 @@ class MessageService:
         self._message_repository = message_repository
         self._model_repository = model_repository
         self._obj_parser = OBJParser()
+
+
+        with open("src/config.yaml") as file:
+            config = yaml.safe_load(file)
+            max_workers = config["assistant"]["max_workers"]
+        MessageService._runner = AsyncProcessAssistantRunner(max_workers)
 
     async def get_by_chat_id(self, chat_id: int) -> list[MessageDTO]:
         messages = await self._message_repository.get_by_chat_id(chat_id)
@@ -91,8 +98,12 @@ class MessageService:
         message_history: list[ResponseChunkDTO],
         stream_id: uuid.UUID,
     ) -> AsyncResponseGenerator:
+        with open("src/config.yaml") as file:
+            config = yaml.safe_load(file)
+            max_workers = config["assistant"]["max_workers"]
+
         assistant_pool = AsyncObjectPool[ChatAssistant].get_pool(
-            MessageService.chat_assistant_factory
+            MessageService.chat_assistant_factory, max_count=max_workers
         )
 
         async with AsyncPooledObjectContextManager(assistant_pool) as chat_assistant:
@@ -121,8 +132,16 @@ class MessageService:
         if stream_id not in self._stream_pool:
             raise ValueError("Stream not found")
 
+        messages = await self._message_repository.get_by_chat_id(chat_id)
+        messages.sort(key=lambda message: cast(datetime, message.created_at))
+
+        messages = messages[-1:]
+
+        debug_logger.debug(messages)
+
         message_history = [
-            ResponseChunkDTO(role="user", content="Genenerate a 3d-model of a chair")
+            ResponseChunkDTO(role=cast(MessageRole, message.role), content=message.content)
+            for message in messages
         ]
         stream = self._stream_pool[stream_id]
         stream.generator = self._stream_message(message_history, stream_id)
@@ -174,14 +193,16 @@ class MessageService:
                 except Exception as e:
                     logger.error(f"Error during message generation: {e}")
                     yield ServerSentEvent(event=Event.ERROR, data=str(e))
-                finally:
-                    del self._stream_pool[stream_id]
+                else:
                     yield ServerSentEvent(
                         event=Event.OBJ_CONTENT, data=obj_indexes_list
                     )
                     yield ServerSentEvent(event=Event.DONE)
+                finally:
+                    del self._stream_pool[stream_id]
 
     async def stop_generation(self, stream_id: uuid.UUID) -> None:
+        debug_logger.debug('stop_generation')
         if stream_id not in self._stream_pool:
             raise ValueError("Stream not found")
 

@@ -61,4 +61,4 @@ database:
   database: postgres
 assistant:
   implementation: obj  # llama, llama_mock, obj, mock
-  
+  max_workers: 3

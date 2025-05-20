@@ -12,6 +12,8 @@ debug_logger = logging.getLogger("debug")
 
 
 class AsyncObjectPool[T]:
+    MAX_COUNT_DEFAULT = 3
+
     _queue: asyncio.Queue[T] = asyncio.Queue()
     _lock = asyncio.Lock()
     _created_count = 0
@@ -19,8 +21,11 @@ class AsyncObjectPool[T]:
 
     @classmethod
     def get_pool(
-        cls: type[AsyncObjectPool[T]], factory: Callable[[], T], max_count: int = 3
+        cls: type[AsyncObjectPool[T]], factory: Callable[[], T], max_count: int | None = MAX_COUNT_DEFAULT
     ) -> AsyncObjectPool[T]:
+        if not max_count:
+            max_count = cls.MAX_COUNT_DEFAULT
+        
         if not cls._pool:
             pool = cls(factory, max_count)
             cls._pool = pool
@@ -34,11 +39,13 @@ class AsyncObjectPool[T]:
 
     async def acquire(self, timeout: float | None = None) -> T:
         try:
+            debug_logger.debug(f"acquire: {self._created_count=}, {self._max_count=}")
             obj = self._queue.get_nowait()
             return obj
         except asyncio.QueueEmpty:
             async with self._lock:
                 if self._created_count < self._max_count:
+                    debug_logger.debug(f"create new: {self._created_count=}, {self._max_count=}")
                     self._created_count += 1
 
                     loop = asyncio.get_event_loop()
@@ -54,10 +61,12 @@ class AsyncObjectPool[T]:
                     f"Timed out waiting for object after {timeout} seconds"
                 )
         else:
+            debug_logger.debug(f"wait for release: {self._created_count=}, {self._max_count=}")
             obj = await self._queue.get()
             return obj
 
     async def release(self, obj: T) -> None:
+        debug_logger.debug(f"released object: {self._created_count=}, {self._max_count=}")
         await self._queue.put(obj)
 
 
