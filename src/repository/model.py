@@ -53,6 +53,23 @@ class AsyncModelRepository(ABC):
         
         models = [ModelDTO.model_validate(model_dao) for model_dao in model_daos]
         return models
+    
+    async def update_model_name(self, model_id: int, name: str) -> ModelDTO:
+        query = (
+            update(ModelDAO)
+            .where(ModelDAO.id == model_id)
+            .values(name=name)
+            .returning(ModelDAO)
+        )
+        result = await self._db_session.execute(query)
+        updated_model = result.scalar_one_or_none()
+
+        await self._db_session.commit()
+
+        if not updated_model:
+            raise ValueError(f"Model with id {model_id} not found")
+        
+        return ModelDTO.model_validate(updated_model)
 
 
 class AsyncS3ModelRepository(AsyncModelRepository):

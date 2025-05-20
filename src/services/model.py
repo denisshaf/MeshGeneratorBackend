@@ -46,3 +46,6 @@ class ModelService:
 
         models = await self._model_repository.get_having_user_id(user.id)
         return models
+    
+    async def update_model_name(self, model_id: int, model_name: str) -> ModelDTO:
+        return await self._model_repository.update_model_name(model_id, model_name)

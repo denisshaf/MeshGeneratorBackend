@@ -53,3 +53,12 @@ async def remove_from_favorites(
     model_service: Annotated[ModelService, Depends()],
 ) -> None:
     await model_service.remove_from_favorites(model_id)
+
+@router.patch("/{model_id}/rename")
+async def update_model_name(
+    model_id: int,
+    name: Annotated[str, Body(embed=True)],
+    model_service: Annotated[ModelService, Depends()],
+) -> ModelDTO:
+    updated_model = await model_service.update_model_name(model_id, name)
+    return updated_model
