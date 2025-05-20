@@ -54,7 +54,7 @@ class MessageDTO(BaseModel):
     models: list[ModelDTO] | None = None
 
 
-type MessageRole = Literal["user", "assistant"]
+type MessageRole = Literal["user", "assistant", "system"]
 
 
 class ResponseChunkDTO(TypedDict):

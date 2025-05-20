@@ -30,6 +30,11 @@ class LLMChatAssistant(ChatAssistant):
     def generate_response(
         self, chat_history: list[ResponseChunkDTO]
     ) -> Generator[ResponseChunkDTO]:
+        system_message = ResponseChunkDTO(
+            content="You are able to generate valid high-quality 3D-meshes.",
+            role="system",
+        )
+        chat_history.insert(0, system_message)
         gen = self._llm.create_chat_completion(
             messages=chat_history, temperature=self._temperature, stream=True
         )
@@ -269,6 +274,8 @@ class ObjChatAssistant(ChatAssistant):
             "obj",
             " ",
             "model:",
+            "```",
+            "obj",
             "\n",
             "v",
             " ",
@@ -359,6 +366,8 @@ class ObjChatAssistant(ChatAssistant):
             " ",
             "2",
             "\n",
+            "```",
+            "\n"
             "are ",
             "you ",
             "satisfied",
@@ -367,5 +376,5 @@ class ObjChatAssistant(ChatAssistant):
 
         for token in tokens:
             response_chunk = ResponseChunkDTO(role="assistant", content=token)
-            time.sleep(0.1)
+            time.sleep(1)
             yield response_chunk
