@@ -27,6 +27,13 @@ logging:
       formatter: simple
       level: DEBUG
       stream: ext://sys.stdout
+    debug_file:
+      class: logging.handlers.RotatingFileHandler
+      level: DEBUG
+      formatter: verbose
+      filename: src/logs/debug.log
+      maxBytes: 150000
+      backupCount: 2
     http_file:
       class: logging.handlers.RotatingFileHandler
       level: DEBUG
@@ -44,7 +51,7 @@ logging:
       level: DEBUG
       handlers:
       - debug
-      propagate: false
+      - debug_file
     http:
       level: DEBUG
       handlers:
