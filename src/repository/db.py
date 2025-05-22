@@ -3,7 +3,6 @@ import re
 from pathlib import Path
 from typing import Annotated, TypeAlias, cast
 
-import yaml
 from dotenv import dotenv_values
 from fastapi import Depends, Request
 from sqlalchemy.ext.asyncio import (
@@ -11,25 +10,20 @@ from sqlalchemy.ext.asyncio import (
 )
 from starlette.middleware.base import BaseHTTPMiddleware
 
-env = dotenv_values()
-
 
 debug_logger = logging.getLogger("debug")
 
-with open("src/config.yaml") as file:
-    db_config = yaml.safe_load(file)["database"]
 
-user = env["POSTGRES_USER"]
-password = env["POSTGRES_PASSWORD"]
-host = db_config["host"]
-port = db_config["port"]
-database = db_config["database"]
+def setup_db_engine(user: str, password: str, host: str, port: str, database: str) -> None:
+    global AsyncSessionFactory
 
-_engine = create_async_engine(
-    f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{database}", echo=False
-)
+    engine = create_async_engine(
+        f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{database}", echo=False
+    )
 
-AsyncSessionFactory = async_sessionmaker(bind=_engine, expire_on_commit=False)
+    AsyncSessionFactory = async_sessionmaker(bind=engine, expire_on_commit=False)
+
+AsyncSessionFactory: async_sessionmaker | None = None
 
 
 class DBSessionMiddleware(BaseHTTPMiddleware):
@@ -38,6 +32,8 @@ class DBSessionMiddleware(BaseHTTPMiddleware):
         self.no_session_close_paths = no_session_close_paths or []
 
     async def dispatch(self, request: Request, call_next):  # type: ignore
+        assert AsyncSessionFactory
+
         request.state.db_session_factory = AsyncSessionFactory
         request.state.active_session = None
 
@@ -55,6 +51,8 @@ class DBSessionMiddleware(BaseHTTPMiddleware):
 
 
 async def get_db_session(request: Request) -> AsyncSession:
+    assert AsyncSessionFactory
+
     if hasattr(request.state, "active_session") and request.state.active_session:
         session = request.state.active_session
     elif hasattr(request.state, "db_session_factory"):

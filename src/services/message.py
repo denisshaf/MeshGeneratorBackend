@@ -2,10 +2,9 @@ import logging
 import uuid
 from contextlib import aclosing
 from enum import StrEnum
-from typing import Annotated, AsyncGenerator, ClassVar, cast
+from typing import Annotated, AsyncGenerator, ClassVar, cast, Literal
 from datetime import datetime
 
-import yaml
 from fastapi import Depends
 
 from ..assistant.assistant_runner import AsyncProcessAssistantRunner
@@ -40,7 +39,9 @@ class Event(StrEnum):
 
 class MessageService:    
     _stream_pool: ClassVar[dict[uuid.UUID, Stream]] = dict()
-    _runner: ClassVar[AsyncProcessAssistantRunner] = None
+    _runner: ClassVar[AsyncProcessAssistantRunner | None] = None
+    _max_workers: ClassVar[int | None] = None
+    _implementation: ClassVar[str | None] = None
 
     def __init__(
         self,
@@ -51,13 +52,15 @@ class MessageService:
     ) -> None:
         self._message_repository = message_repository
         self._model_repository = model_repository
-        self._obj_parser = OBJParser()
 
-
-        with open("src/config.yaml") as file:
-            config = yaml.safe_load(file)
-            max_workers = config["assistant"]["max_workers"]
+    @staticmethod
+    def set_max_workers(max_workers: int) -> None:
+        MessageService._max_workers = max_workers
         MessageService._runner = AsyncProcessAssistantRunner(max_workers)
+    
+    @staticmethod
+    def set_assistant_implementation(implementation: str) -> None:
+        MessageService._implementation = implementation
 
     async def get_by_chat_id(self, chat_id: int) -> list[MessageDTO]:
         messages = await self._message_repository.get_by_chat_id(chat_id)
@@ -66,21 +69,19 @@ class MessageService:
     async def create_message(
         self, chat_id: int, message: MessageDTO
     ) -> tuple[uuid.UUID, MessageDTO]:
-        debug_logger.debug(f"stream pool id: {id(self._stream_pool)}")
+        debug_logger.debug(f"stream pool id: {id(MessageService._stream_pool)}")
         message = await self._message_repository.create(chat_id, message)
 
         assert message.id
 
         stream_id = uuid.uuid4()
-        self._stream_pool[stream_id] = Stream(chat_id, message.id)
+        MessageService._stream_pool[stream_id] = Stream(chat_id, message.id)
 
         return stream_id, message
 
     @staticmethod
     def chat_assistant_factory() -> ChatAssistant:
-        with open("src/config.yaml") as file:
-            config = yaml.safe_load(file)
-            implementation = config["assistant"]["implementation"]
+        implementation = MessageService._implementation
 
         if implementation == "llama":
             return LlamaChatAssistant()
@@ -93,30 +94,30 @@ class MessageService:
         else:
             raise ValueError(f"Unknown assistant implementation: {implementation}")
 
+    @staticmethod
     async def _stream_message(
-        self,
         message_history: list[ResponseChunkDTO],
         stream_id: uuid.UUID,
     ) -> AsyncResponseGenerator:
-        with open("src/config.yaml") as file:
-            config = yaml.safe_load(file)
-            max_workers = config["assistant"]["max_workers"]
+        assert MessageService._max_workers
+        assert MessageService._runner
 
         assistant_pool = AsyncObjectPool[ChatAssistant].get_pool(
-            MessageService.chat_assistant_factory, max_count=max_workers
+            MessageService.chat_assistant_factory,
+            max_count=MessageService._max_workers
         )
 
         async with AsyncPooledObjectContextManager(assistant_pool) as chat_assistant:
 
-            gen = self._runner.stream_response(
+            gen = MessageService._runner.stream_response(
                 chat_assistant, message_history, stream_id
             )
 
             async for chunk in gen:
                 yield chunk
 
+    @staticmethod
     async def _mock_stream_message(
-        self,
         message_history: list[ResponseChunkDTO],
         stream_id: uuid.UUID,
     ) -> AsyncResponseGenerator:
@@ -129,7 +130,9 @@ class MessageService:
     async def create_stream(
         self, chat_id: int, stream_id: uuid.UUID
     ) -> AsyncGenerator[ServerSentEvent]:
-        if stream_id not in self._stream_pool:
+        assert MessageService._runner
+
+        if stream_id not in MessageService._stream_pool:
             raise ValueError("Stream not found")
 
         messages = await self._message_repository.get_by_chat_id(chat_id)
@@ -137,19 +140,18 @@ class MessageService:
 
         messages = messages[-1:]
 
-        debug_logger.debug(messages)
-
         message_history = [
             ResponseChunkDTO(role=cast(MessageRole, message.role), content=message.content)
             for message in messages
         ]
-        stream = self._stream_pool[stream_id]
-        stream.generator = self._stream_message(message_history, stream_id)
+        stream = MessageService._stream_pool[stream_id]
+        stream.generator = MessageService._stream_message(message_history, stream_id)
         stream.is_running = True
 
-        with self._obj_parser as obj_parser:
-            async with aclosing(self._message_repository), aclosing(
-                self._model_repository
+        with OBJParser() as obj_parser:
+            async with (
+                aclosing(self._message_repository), 
+                aclosing(self._model_repository)
             ):
                 obj_indexes_list = []
                 try:
@@ -159,7 +161,7 @@ class MessageService:
                     async with aclosing(stream.generator) as stream_gen:
                         async for chunk in stream_gen:
                             if not stream.is_running:
-                                self._runner.stop_stream(stream_id)
+                                MessageService._runner.stop_stream(stream_id)
                                 break
 
                             content = chunk["content"]
@@ -199,14 +201,20 @@ class MessageService:
                     )
                     yield ServerSentEvent(event=Event.DONE)
                 finally:
-                    del self._stream_pool[stream_id]
+                    del MessageService._stream_pool[stream_id]
 
-    async def stop_generation(self, stream_id: uuid.UUID) -> None:
+    @staticmethod
+    async def stop_generation(stream_id: uuid.UUID) -> None:
         debug_logger.debug('stop_generation')
-        if stream_id not in self._stream_pool:
+        if stream_id not in MessageService._stream_pool:
             raise ValueError("Stream not found")
 
-        stream = self._stream_pool[stream_id]
+        stream = MessageService._stream_pool[stream_id]
         assert stream.generator
 
         stream.is_running = False
+    
+    @staticmethod
+    def shutdown() -> None:
+        assert MessageService._runner
+        MessageService._runner.shutdown()
