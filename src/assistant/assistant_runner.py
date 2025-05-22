@@ -1,3 +1,4 @@
+import os
 import asyncio
 import functools
 import logging
@@ -9,33 +10,47 @@ from queue import Empty, Queue
 from typing import AsyncGenerator, ClassVar
 
 from ..models.message import ResponseChunkDTO
-from ..utils.singletone import Singleton
 from .chat_assistant import ChatAssistant
 
 debug_logger = logging.getLogger("debug")
 
 
-class AsyncProcessAssistantRunner(metaclass=Singleton):
+class AsyncProcessAssistantRunner:
     MAX_WORKERS_DEFAULT = 1
 
-    _manager: ClassVar = mp.Manager()
-    _process_pool: ClassVar[ProcessPoolExecutor | None] = None
-    _running_tasks: ClassVar[dict[uuid.UUID, asyncio.Future]] = {}
-    _stop_events: ClassVar[dict[uuid.UUID, EventClass]] = {}
+    # _manager = mp.Manager()
+    # _process_pool = ProcessPoolExecutor(3)
+    # _running_tasks: dict[uuid.UUID, asyncio.Future] = {}
+    # _stop_events: dict[uuid.UUID, EventClass] = {}
 
     def __init__(self, max_workers: int = MAX_WORKERS_DEFAULT):
-        AsyncProcessAssistantRunner._process_pool = ProcessPoolExecutor(
-            max_workers=max_workers
-        )
+        self._manager = mp.Manager()
+        self._process_pool = ProcessPoolExecutor(max_workers)
+        self._running_tasks: dict[uuid.UUID, asyncio.Future] = {}
+        self._stop_events: dict[uuid.UUID, EventClass] = {}
+        ...
 
+    # def __getstate__(self):
+    #     d = super().__getstate__()
+    #     d_copy = dict(d)
+
+    #     del d_copy['_manager']
+    #     del d_copy['_process_pool']
+    #     del d_copy['_running_tasks']
+    #     del d_copy['_stop_events']
+
+    #     return d_copy
+
+    @staticmethod
     def _run_assistant(
-        self,
         assistant: ChatAssistant,
         query: list[ResponseChunkDTO],
         queue: Queue,
         stop_event: EventClass,
     ) -> None:
         try:
+            debug_logger.debug(f"Run in process {os.getpid()}, {queue=}")
+            print(f"Run in process {os.getpid()}, {queue=}", flush=True)
             gen = assistant.generate_response(query)
 
             for chunk in gen:
@@ -83,6 +98,8 @@ class AsyncProcessAssistantRunner(metaclass=Singleton):
         query: list[ResponseChunkDTO],
         stream_id: uuid.UUID,
     ) -> AsyncGenerator[ResponseChunkDTO, None]:
+        debug_logger.debug(f"_process_pool: {self._process_pool=}")
+
         result_queue = self._manager.Queue()
 
         debug_logger.debug(f"stream_response: {stream_id=}, queue={result_queue}")
@@ -93,13 +110,14 @@ class AsyncProcessAssistantRunner(metaclass=Singleton):
         task = loop.run_in_executor(
             self._process_pool,
             functools.partial(
-                self._run_assistant,
+                AsyncProcessAssistantRunner._run_assistant,
                 assistant=assistant,
                 query=query,
                 queue=result_queue,
                 stop_event=stop_event,
             ),
         )
+        debug_logger.debug(f"task: {task}")
         self._running_tasks[stream_id] = task
 
         return self._stream_from_queue(result_queue, stream_id)
