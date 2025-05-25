@@ -62,7 +62,7 @@ class LlamaChatAssistant(LLMChatAssistant):
         llm = Llama(
             model_path=str(model_path),
             n_ctx=4096,
-            n_threads=12,
+            n_threads=5,
             verbose=False,
         )
         return cast(HasChatCompletion, llm)
