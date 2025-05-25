@@ -2,7 +2,7 @@ import logging
 from typing import Annotated
 
 from fastapi import Depends
-from sqlalchemy import select
+from sqlalchemy import select, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
 
@@ -69,6 +69,33 @@ class AsyncMessageRepository:
                 models=[ModelDTO.model_validate(model) for model in message.models],
             )
             for message in messages
+        ]
+
+        return messages_dto
+    
+    async def get_last_n_by_chat_id(self, chat_id: int, n: int) -> list[MessageDTO]:
+        query = (
+            select(MessageDAO)
+            .options(joinedload(MessageDAO.role))
+            .where(MessageDAO.chat_id == chat_id)
+            .order_by(desc(MessageDAO.created_at))
+            .limit(n)
+            .options(selectinload(MessageDAO.models))
+        )
+
+        result = await self._db_session.execute(query)
+        messages = result.scalars().all()
+
+        messages_dto = [
+            MessageDTO(
+                id=message.id,
+                content=message.content,
+                role=message.role.name,
+                created_at=message.created_at,
+                chat_id=message.chat_id,
+                models=[ModelDTO.model_validate(model) for model in message.models],
+            )
+            for message in reversed(messages)
         ]
 
         return messages_dto

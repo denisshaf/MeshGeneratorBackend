@@ -73,7 +73,7 @@ class AsyncProcessAssistantRunner:
         while True:
             try:
                 chunk: ResponseChunkDTO | Exception | None = await loop.run_in_executor(
-                    None, lambda: queue.get(block=True, timeout=60)  # 60 seconds
+                    None, lambda: queue.get(block=True, timeout=None)  # 60 seconds
                 )
 
                 if not chunk:

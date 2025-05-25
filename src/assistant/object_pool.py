@@ -37,7 +37,7 @@ class AsyncObjectPool[T]:
         self._max_count = max_count
         self._factory = factory
 
-    async def acquire(self, timeout: float | None = None) -> T:
+    async def acquire_nowait(self) -> T | None:
         try:
             # debug_logger.debug(f"acquire: {self._created_count=}, {self._max_count=}")
             obj = self._queue.get_nowait()
@@ -51,7 +51,9 @@ class AsyncObjectPool[T]:
                     loop = asyncio.get_event_loop()
                     obj = await loop.run_in_executor(None, self._factory)
                     return obj
+        return None
 
+    async def acquire(self, timeout: float | None = None) -> T:
         if timeout:
             try:
                 obj = await asyncio.wait_for(self._queue.get(), timeout)
@@ -74,11 +76,11 @@ class AsyncPooledObjectContextManager[T]:
     _obj: T | None = None
 
     def __init__(self, pool: AsyncObjectPool[T], timeout: float | None = None) -> None:
-        self.pool = pool
-        self.timeout = timeout
+        self._pool = pool
+        self._timeout = timeout
 
     async def __aenter__(self) -> T:
-        self._obj = await self.pool.acquire(self.timeout)
+        self._obj = await self._pool.acquire(self._timeout)
         return self._obj
 
     async def __aexit__(
@@ -89,7 +91,7 @@ class AsyncPooledObjectContextManager[T]:
     ) -> None:
         if not self._obj:
             raise TypeError("__aenter__ was not called")
-        await self.pool.release(self._obj)
+        await self._pool.release(self._obj)
 
 
 class ObjectPool[T]:

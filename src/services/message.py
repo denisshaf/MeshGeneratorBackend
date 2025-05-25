@@ -35,6 +35,7 @@ class Event(StrEnum):
     OBJ_CONTENT = "obj_content"
     DONE = "done"
     ERROR = "error"
+    BUSY = "busy"
 
 
 class MessageService:    
@@ -94,59 +95,33 @@ class MessageService:
         else:
             raise ValueError(f"Unknown assistant implementation: {implementation}")
 
-    @staticmethod
-    async def _stream_message(
-        message_history: list[ResponseChunkDTO],
-        stream_id: uuid.UUID,
-    ) -> AsyncResponseGenerator:
-        assert MessageService._max_workers
-        assert MessageService._runner
-
-        assistant_pool = AsyncObjectPool[ChatAssistant].get_pool(
-            MessageService.chat_assistant_factory,
-            max_count=MessageService._max_workers
-        )
-
-        async with AsyncPooledObjectContextManager(assistant_pool) as chat_assistant:
-
-            gen = MessageService._runner.stream_response(
-                chat_assistant, message_history, stream_id
-            )
-
-            async for chunk in gen:
-                yield chunk
-
-    @staticmethod
-    async def _mock_stream_message(
-        message_history: list[ResponseChunkDTO],
-        stream_id: uuid.UUID,
-    ) -> AsyncResponseGenerator:
-        import asyncio
-
-        for i in range(30):
-            yield ResponseChunkDTO(role="assistant", content=f"{i} ")
-            await asyncio.sleep(1)
-
     async def create_stream(
         self, chat_id: int, stream_id: uuid.UUID
     ) -> AsyncGenerator[ServerSentEvent]:
+        debug_logger.debug(f"stream pool length: {len(MessageService._stream_pool)}")
         assert MessageService._runner
+        assert MessageService._max_workers
 
         if stream_id not in MessageService._stream_pool:
             raise ValueError("Stream not found")
 
-        messages = await self._message_repository.get_by_chat_id(chat_id)
-        messages.sort(key=lambda message: cast(datetime, message.created_at))
-
-        messages = messages[-1:]
-
+        messages = await self._message_repository.get_last_n_by_chat_id(chat_id, 1)
         message_history = [
             ResponseChunkDTO(role=cast(MessageRole, message.role), content=message.content)
             for message in messages
         ]
-        stream = MessageService._stream_pool[stream_id]
-        stream.generator = MessageService._stream_message(message_history, stream_id)
-        stream.is_running = True
+
+        assistant_pool = AsyncObjectPool.get_pool(
+            MessageService.chat_assistant_factory,
+            max_count=MessageService._max_workers
+        )
+
+        chat_assistant = await assistant_pool.acquire_nowait()
+
+        if not chat_assistant:
+            yield ServerSentEvent(event=Event.BUSY)
+            
+            chat_assistant = await assistant_pool.acquire()
 
         with OBJParser() as obj_parser:
             async with (
@@ -154,9 +129,15 @@ class MessageService:
                 aclosing(self._model_repository)
             ):
                 obj_indexes_list = []
+                tokens = []
+                chunk: ResponseChunkDTO
                 try:
-                    tokens = []
-                    chunk: ResponseChunkDTO
+
+                    stream = MessageService._stream_pool[stream_id]
+                    stream.generator = MessageService._runner.stream_response(
+                        chat_assistant, message_history, stream_id
+                    )
+                    stream.is_running = True
 
                     async with aclosing(stream.generator) as stream_gen:
                         async for chunk in stream_gen:
@@ -201,6 +182,7 @@ class MessageService:
                     )
                     yield ServerSentEvent(event=Event.DONE)
                 finally:
+                    await assistant_pool.release(chat_assistant)
                     del MessageService._stream_pool[stream_id]
 
     @staticmethod
@@ -218,3 +200,4 @@ class MessageService:
     def shutdown() -> None:
         assert MessageService._runner
         MessageService._runner.shutdown()
+        debug_logger.debug('stop_generation')

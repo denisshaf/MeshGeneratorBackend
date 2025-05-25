@@ -180,3 +180,5 @@ cython_debug/
 .isort.cfg
 
 t.py
+
+src/config.yaml

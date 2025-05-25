@@ -23,8 +23,6 @@ async def get_chats(
     user_auth_id = user["sub"]
     chats = await service.get_my_chats(user_auth_id)
 
-    debug_logger.debug(f"Chats {chats}")
-
     return chats
 
 
