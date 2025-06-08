@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Generator, Iterable
 from pathlib import Path
 from typing import cast, override
+import yaml
 
 from llama_cpp import Llama
 
@@ -58,9 +59,18 @@ class LLMChatAssistant(ChatAssistant):
 class LlamaChatAssistant(LLMChatAssistant):
     @override
     def initialize_llm(self) -> HasChatCompletion:
-        model_path = Path("~/LLaMA-Mesh/LLaMA-Mesh.gguf").expanduser()
+        with open("src/config.yaml") as file:
+            config = yaml.safe_load(file)
+            model_path = config["assistant"]["model_path"]
+            lora_path = config["assistant"]["lora_path"]
+        
+        model_path = str(Path(model_path).expanduser())
+        if lora_path:
+            lora_path = str(Path(lora_path).expanduser())
+
         llm = Llama(
-            model_path=str(model_path),
+            model_path=model_path,
+            lora_path=lora_path,
             n_ctx=4096,
             n_threads=5,
             verbose=False,
